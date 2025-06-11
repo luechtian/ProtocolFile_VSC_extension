@@ -1,0 +1,312 @@
+{
+  "Basic ProtocolFile Configuration": {
+    "prefix": "config-basic",
+    "body": [
+      "{",
+      "  \"$schema\": \"./schemas/protocolfile-config.schema.json\",",
+      "  \"configVersion\": \"2.0\",",
+      "  \"projectName\": \"${1:Laboratory Protocol Testing}\",",
+      "  \"description\": \"${2:Configuration for ProtocolFile test automation}\",",
+      "  ",
+      "  \"applicationPaths\": {",
+      "    \"serverDirectory\": \"${3:../../software.comm}\",",
+      "    \"clientDirectory\": \"${4:../../software.gui}\",",
+      "    \"serverExecutable\": \"${5:software.comm.exe.bat}\",",
+      "    \"clientExecutable\": \"${6:software.gui.exe.bat}\"",
+      "  },",
+      "  ",
+      "  \"configurationFiles\": {",
+      "    \"serverConfigFile\": \"${7:appsettings.json}\",",
+      "    \"clientConfigFile\": \"${8:app.config}\"",
+      "  },",
+      "  ",
+      "  \"databaseOperations\": {",
+      "    \"enabled\": ${9:false}",
+      "  },",
+      "  ",
+      "  \"testExecution\": {",
+      "    \"startupDelay\": ${10:5},",
+      "    \"retryAttempts\": ${11:3}",
+      "  }",
+      "}"
+    ],
+    "description": "Basic ProtocolFile configuration template"
+  },
+
+  "Database-Enabled Configuration": {
+    "prefix": "config-database",
+    "body": [
+      "{",
+      "  \"$schema\": \"./schemas/protocolfile-config.schema.json\",",
+      "  \"configVersion\": \"2.0\",",
+      "  \"projectName\": \"${1:Database-Enabled Laboratory Testing}\",",
+      "  ",
+      "  \"applicationPaths\": {",
+      "    \"serverDirectory\": \"${2:../../software.comm}\",",
+      "    \"clientDirectory\": \"${3:../../software.gui}\",",
+      "    \"serverExecutable\": \"${4:software.comm.exe.bat}\",",
+      "    \"clientExecutable\": \"${5:software.gui.exe.bat}\"",
+      "  },",
+      "  ",
+      "  \"configurationFiles\": {",
+      "    \"serverConfigFile\": \"${6:appsettings.json}\",",
+      "    \"clientConfigFile\": \"${7:app.config}\"",
+      "  },",
+      "  ",
+      "  \"databaseOperations\": {",
+      "    \"enabled\": true,",
+      "    \"connectionString\": \"${8:Server=localhost;Database=TestDB;Trusted_Connection=true;}\",",
+      "    \"setupScripts\": [",
+      "      {",
+      "        \"name\": \"Initialize Test Database\",",
+      "        \"path\": \"./sql/setup_test_db.sql\",",
+      "        \"description\": \"Creates test database and tables\",",
+      "        \"required\": true",
+      "      }",
+      "    ],",
+      "    \"cleanupScripts\": [",
+      "      {",
+      "        \"name\": \"Cleanup Test Data\",",
+      "        \"path\": \"./sql/cleanup_test_data.sql\",",
+      "        \"description\": \"Removes test data after completion\",",
+      "        \"required\": true",
+      "      }",
+      "    ]",
+      "  }",
+      "}"
+    ],
+    "description": "Database-enabled ProtocolFile configuration"
+  },
+
+  "Advanced Configuration with Commands": {
+    "prefix": "config-advanced",
+    "body": [
+      "{",
+      "  \"$schema\": \"./schemas/protocolfile-config.schema.json\",",
+      "  \"configVersion\": \"2.0\",",
+      "  \"projectName\": \"${1:Advanced Laboratory Testing Suite}\",",
+      "  ",
+      "  \"applicationPaths\": {",
+      "    \"serverDirectory\": \"${2:../../software.comm}\",",
+      "    \"clientDirectory\": \"${3:../../software.gui}\",",
+      "    \"serverExecutable\": \"${4:software.comm.exe.bat}\",",
+      "    \"clientExecutable\": \"${5:software.gui.exe.bat}\"",
+      "  },",
+      "  ",
+      "  \"configurationFiles\": {",
+      "    \"serverConfigFile\": \"${6:appsettings.json}\",",
+      "    \"clientConfigFile\": \"${7:app.config}\"",
+      "  },",
+      "  ",
+      "  \"testExecution\": {",
+      "    \"startupDelay\": ${8:5},",
+      "    \"retryAttempts\": ${9:3},",
+      "    \"preTestCommands\": [",
+      "      {",
+      "        \"name\": \"Verify Prerequisites\",",
+      "        \"command\": \"${10:echo}\",",
+      "        \"args\": [\"${11:Checking prerequisites...}\"],",
+      "        \"description\": \"${12:Verify all prerequisites are met}\"",
+      "      }",
+      "    ],",
+      "    \"postTestCommands\": [",
+      "      {",
+      "        \"name\": \"Generate Report\",",
+      "        \"command\": \"${13:echo}\",",
+      "        \"args\": [\"${14:Test completed successfully}\"],",
+      "        \"description\": \"${15:Generate test completion report}\"",
+      "      }",
+      "    ]",
+      "  },",
+      "  ",
+      "  \"reporting\": {",
+      "    \"generateReports\": true,",
+      "    \"reportDirectory\": \"${16:./reports}\",",
+      "    \"reportFormats\": [\"json\", \"html\"],",
+      "    \"includeTimestamp\": true",
+      "  }",
+      "}"
+    ],
+    "description": "Advanced ProtocolFile configuration with custom commands"
+  },
+
+  "SQL Script Definition": {
+    "prefix": "sql-script",
+    "body": [
+      "{",
+      "  \"name\": \"${1:Script Name}\",",
+      "  \"path\": \"${2:./sql/script.sql}\",",
+      "  \"description\": \"${3:Description of what this script does}\",",
+      "  \"required\": ${4:true},",
+      "  \"timeout\": ${5:300}",
+      "}"
+    ],
+    "description": "SQL script definition for database operations"
+  },
+
+  "Custom Command Definition": {
+    "prefix": "custom-command",
+    "body": [
+      "{",
+      "  \"name\": \"${1:Command Name}\",",
+      "  \"command\": \"${2:command}\",",
+      "  \"args\": [${3:\"arg1\", \"arg2\"}],",
+      "  \"description\": \"${4:Description of what this command does}\",",
+      "  \"workingDirectory\": \"${5:./}\",",
+      "  \"timeout\": ${6:30},",
+      "  \"continueOnError\": ${7:false}",
+      "}"
+    ],
+    "description": "Custom command definition for test execution"
+  },
+
+  "Application Paths Configuration": {
+    "prefix": "app-paths",
+    "body": [
+      "\"applicationPaths\": {",
+      "  \"serverDirectory\": \"${1:../../software.comm}\",",
+      "  \"clientDirectory\": \"${2:../../software.gui}\",",
+      "  \"serverExecutable\": \"${3:software.comm.exe.bat}\",",
+      "  \"serverExecutableAlt\": \"${4:software.comm.exe}\",",
+      "  \"clientExecutable\": \"${5:software.gui.exe.bat}\",",
+      "  \"clientExecutableAlt\": \"${6:software.gui.exe}\"",
+      "}"
+    ],
+    "description": "Application paths configuration block"
+  },
+
+  "Server Configuration Block": {
+    "prefix": "server-config",
+    "body": [
+      "\"serverConfiguration\": {",
+      "  \"format\": \"${1:json}\",",
+      "  \"simulationProtocolKey\": \"${2:SimulationProtocol}\",",
+      "  \"simulationProtocolPrefix\": \"${3:--SimulationMode true}\",",
+      "  \"additionalSettings\": {",
+      "    \"${4:LogLevel}\": \"${5:Debug}\",",
+      "    \"${6:DatabaseConnectionTimeout}\": ${7:30}",
+      "  }",
+      "}"
+    ],
+    "description": "Server configuration block"
+  },
+
+  "Client Configuration Block": {
+    "prefix": "client-config",
+    "body": [
+      "\"clientConfiguration\": {",
+      "  \"format\": \"${1:xml}\",",
+      "  \"simulationModeKey\": \"${2:SimulationMode}\",",
+      "  \"simulationModeValue\": \"${3:true}\",",
+      "  \"additionalSettings\": {",
+      "    \"${4:TimeoutSeconds}\": \"${5:300}\",",
+      "    \"${6:RetryAttempts}\": \"${7:3}\"",
+      "  }",
+      "}"
+    ],
+    "description": "Client configuration block"
+  },
+
+  "Database Operations Block": {
+    "prefix": "database-ops",
+    "body": [
+      "\"databaseOperations\": {",
+      "  \"enabled\": ${1:true},",
+      "  \"connectionString\": \"${2:Server=localhost;Database=TestDB;Trusted_Connection=true;}\",",
+      "  \"setupScripts\": [",
+      "    {",
+      "      \"name\": \"${3:Initialize Database}\",",
+      "      \"path\": \"${4:./sql/setup.sql}\",",
+      "      \"description\": \"${5:Creates database structure}\",",
+      "      \"required\": ${6:true}",
+      "    }",
+      "  ],",
+      "  \"cleanupScripts\": [",
+      "    {",
+      "      \"name\": \"${7:Cleanup Database}\",",
+      "      \"path\": \"${8:./sql/cleanup.sql}\",",
+      "      \"description\": \"${9:Cleans up test data}\",",
+      "      \"required\": ${10:true}",
+      "    }",
+      "  ]",
+      "}"
+    ],
+    "description": "Database operations configuration block"
+  },
+
+  "Test Execution Settings": {
+    "prefix": "test-execution",
+    "body": [
+      "\"testExecution\": {",
+      "  \"startupDelay\": ${1:5},",
+      "  \"shutdownTimeout\": ${2:30},",
+      "  \"retryAttempts\": ${3:3},",
+      "  \"preTestCommands\": [],",
+      "  \"postTestCommands\": []",
+      "}"
+    ],
+    "description": "Test execution settings block"
+  },
+
+  "Validation Settings": {
+    "prefix": "validation-settings",
+    "body": [
+      "\"validation\": {",
+      "  \"enableSchemaValidation\": ${1:true},",
+      "  \"enableBusinessRuleValidation\": ${2:true},",
+      "  \"validateOnSave\": ${3:true},",
+      "  \"enableLiveValidation\": ${4:true},",
+      "  \"schemaFiles\": {",
+      "    \"protocolFileSchema\": \"${5:./schemas/ProtocolFile.schema.json}\",",
+      "    \"testDataProtocolFileSchema\": \"${6:./schemas/testDataProtocolFile.schema.json}\"",
+      "  }",
+      "}"
+    ],
+    "description": "Validation settings configuration block"
+  },
+
+  "Logging Configuration": {
+    "prefix": "logging-config",
+    "body": [
+      "\"logging\": {",
+      "  \"enableTestLogging\": ${1:true},",
+      "  \"logDirectory\": \"${2:./logs}\",",
+      "  \"logLevel\": \"${3:info}\",",
+      "  \"retainLogDays\": ${4:30},",
+      "  \"logFormat\": \"${5:timestamp}\"",
+      "}"
+    ],
+    "description": "Logging configuration block"
+  },
+
+  "Error Handling Settings": {
+    "prefix": "error-handling",
+    "body": [
+      "\"errorHandling\": {",
+      "  \"autoRestoreOnFailure\": ${1:true},",
+      "  \"continueOnNonCriticalErrors\": ${2:false},",
+      "  \"emailNotifications\": {",
+      "    \"enabled\": ${3:false},",
+      "    \"recipients\": [${4:\"admin@example.com\"}],",
+      "    \"onFailure\": ${5:true},",
+      "    \"onSuccess\": ${6:false}",
+      "  }",
+      "}"
+    ],
+    "description": "Error handling configuration block"
+  },
+
+  "Reporting Configuration": {
+    "prefix": "reporting-config",
+    "body": [
+      "\"reporting\": {",
+      "  \"generateReports\": ${1:true},",
+      "  \"reportDirectory\": \"${2:./reports}\",",
+      "  \"reportFormats\": [${3:\"json\", \"html\"}],",
+      "  \"includeTimestamp\": ${4:true},",
+      "  \"includeSystemInfo\": ${5:true}",
+      "}"
+    ],
+    "description": "Reporting configuration block"
+  }
+}

@@ -1,82 +1,427 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec, spawn, ChildProcess } from 'child_process';
-import { promisify } from 'util';
+import * as child_process from 'child_process';
 import Ajv from 'ajv';
 
-const execAsync = promisify(exec);
+// ============================================================================
+// INTERFACES AND TYPES
+// ============================================================================
 
-// Global variables for process management
-let serverProcess: ChildProcess | null = null;
-let clientProcess: ChildProcess | null = null;
-let isTestRunning = false;
-
-export function activate(context: vscode.ExtensionContext) {
-    console.log('ProtocolFile Validator Extension activated');
-
-    // Register all commands
-    const commands = [
-        vscode.commands.registerCommand('protocolfile.validate', validateProtocolFile),
-        vscode.commands.registerCommand('protocolfile.generateTemplate', generateTemplate),
-        vscode.commands.registerCommand('protocolfile.runTest', runTestWithProtocol),
-        vscode.commands.registerCommand('protocolfile.runIntegratedTest', runIntegratedTest),
-        vscode.commands.registerCommand('protocolfile.configureTestPaths', configureTestPaths),
-        vscode.commands.registerCommand('protocolfile.generateTestData', generateTestData),
-        vscode.commands.registerCommand('protocolfile.compareFiles', compareProtocolFiles),
-        vscode.commands.registerCommand('protocolfile.createBasic', () => createQuickTemplate('basic')),
-        vscode.commands.registerCommand('protocolfile.createTestData', () => createQuickTemplate('testdata')),
-        vscode.commands.registerCommand('protocolfile.quickValidate', quickValidateAllFiles),
-        vscode.commands.registerCommand('protocolfile.showHelp', showHelpPanel),
-        vscode.commands.registerCommand('protocolfile.showQuickActions', showQuickActions),
-        vscode.commands.registerCommand('protocolfile.stopTest', stopRunningTest)
-    ];
-
-    // Auto-validation on save
-    const saveListener = vscode.workspace.onDidSaveTextDocument((document) => {
-        if (shouldValidateDocument(document)) {
-            validateProtocolFileAuto(document);
-        }
-    });
-
-    // Status bar
-    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    setupStatusBar(statusBarItem);
-    
-    // Active editor listener
-    const activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-        updateStatusBar(statusBarItem, editor);
-    });
-
-    context.subscriptions.push(...commands, saveListener, statusBarItem, activeEditorListener);
-    
-    // Show welcome message on first activation
-    showWelcomeMessage(context);
+interface ProtocolFileConfig {
+    configVersion: string;
+    projectName?: string;
+    description?: string;
+    applicationPaths: ApplicationPaths;
+    configurationFiles: ConfigurationFiles;
+    serverConfiguration?: ServerConfiguration;
+    clientConfiguration?: ClientConfiguration;
+    testExecution?: TestExecution;
+    validation?: ValidationSettings;
+    logging?: LoggingSettings;
+    errorHandling?: ErrorHandlingSettings;
+    reporting?: ReportingSettings;
+    customCommands?: CustomCommands;
 }
 
-function shouldValidateDocument(document: vscode.TextDocument): boolean {
-    const fileName = path.basename(document.fileName);
-    return document.languageId === 'json' && 
-           (fileName.includes('ProtocolFile') || fileName.includes('TestDataProtocolFile') || fileName.endsWith('.protocol.json'));
+interface ApplicationPaths {
+    serverDirectory: string;
+    clientDirectory: string;
+    serverExecutable: string;
+    serverExecutableAlt?: string;
+    clientExecutable: string;
+    clientExecutableAlt?: string;
 }
 
-function isTestDataFile(document: vscode.TextDocument): boolean {
-    const fileName = path.basename(document.fileName);
-    return fileName.includes('TestDataProtocolFile') || fileName.toLowerCase().includes('testdata');
+interface ConfigurationFiles {
+    serverConfigFile: string;
+    clientConfigFile: string;
+    backupSuffix?: string;
+}
+
+interface ServerConfiguration {
+    format?: 'json' | 'xml' | 'ini';
+    simulationProtocolKey?: string;
+    simulationProtocolPrefix?: string;
+    additionalSettings?: Record<string, any>;
+}
+
+interface ClientConfiguration {
+    format?: 'json' | 'xml' | 'ini';
+    simulationModeKey?: string;
+    simulationModeValue?: string;
+    additionalSettings?: Record<string, string>;
+}
+
+interface TestExecution {
+    startupDelay?: number;
+    shutdownTimeout?: number;
+    retryAttempts?: number;
+    preTestCommands?: Command[];
+    postTestCommands?: Command[];
+}
+
+interface Command {
+    name: string;
+    command: string;
+    args?: string[];
+    description?: string;
+    workingDirectory?: string;
+    timeout?: number;
+    continueOnError?: boolean;
+}
+
+interface ValidationSettings {
+    enableSchemaValidation?: boolean;
+    enableBusinessRuleValidation?: boolean;
+    validateOnSave?: boolean;
+    enableLiveValidation?: boolean;
+    schemaFiles?: {
+        protocolFileSchema?: string;
+        testDataProtocolFileSchema?: string;
+    };
+}
+
+interface LoggingSettings {
+    enableTestLogging?: boolean;
+    logDirectory?: string;
+    logLevel?: 'error' | 'warn' | 'info' | 'debug';
+    retainLogDays?: number;
+    logFormat?: 'json' | 'text' | 'timestamp';
+}
+
+interface ErrorHandlingSettings {
+    autoRestoreOnFailure?: boolean;
+    continueOnNonCriticalErrors?: boolean;
+    emailNotifications?: {
+        enabled?: boolean;
+        recipients?: string[];
+        onFailure?: boolean;
+        onSuccess?: boolean;
+    };
+}
+
+interface ReportingSettings {
+    generateReports?: boolean;
+    reportDirectory?: string;
+    reportFormats?: ('json' | 'xml' | 'html' | 'csv')[];
+    includeTimestamp?: boolean;
+    includeSystemInfo?: boolean;
+}
+
+interface CustomCommands {
+    beforeTest?: Command[];
+    afterTest?: Command[];
+    onError?: Command[];
+    onSuccess?: Command[];
+}
+
+interface TestSession {
+    id: string;
+    protocolFile: string;
+    startTime: Date;
+    config: ProtocolFileConfig;
+    serverProcess?: child_process.ChildProcess;
+    clientProcess?: child_process.ChildProcess;
+    status: 'preparing' | 'running' | 'completed' | 'failed' | 'stopped';
+    logs: string[];
 }
 
 // ============================================================================
-// INTEGRATED TEST RUNNER - REPLACES run_test.bat
+// GLOBAL VARIABLES
+// ============================================================================
+
+let diagnosticsCollection: vscode.DiagnosticCollection;
+let statusBarItem: vscode.StatusBarItem;
+let currentTestSession: TestSession | null = null;
+let testControlPanel: vscode.WebviewPanel | null = null;
+let outputChannel: vscode.OutputChannel;
+
+// ============================================================================
+// EXTENSION ACTIVATION
+// ============================================================================
+
+export function activate(context: vscode.ExtensionContext) {
+    console.log('Enhanced ProtocolFile extension is now active!');
+
+    // Initialize components
+    outputChannel = vscode.window.createOutputChannel('ProtocolFile');
+    diagnosticsCollection = vscode.languages.createDiagnosticCollection('protocolfile');
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    setupStatusBar(statusBarItem);
+
+    // Register commands
+    const commands = [
+        vscode.commands.registerCommand('protocolfile.generateTemplate', generateTemplate),
+        vscode.commands.registerCommand('protocolfile.validateProtocolFile', validateProtocolFile),
+        vscode.commands.registerCommand('protocolfile.runIntegratedTest', runIntegratedTest),
+        vscode.commands.registerCommand('protocolfile.openConfigurationEditor', openConfigurationEditor),
+        vscode.commands.registerCommand('protocolfile.createConfigurationProfile', createConfigurationProfile),
+        vscode.commands.registerCommand('protocolfile.configureTestPaths', configureTestPaths),
+        vscode.commands.registerCommand('protocolfile.stopRunningTest', stopRunningTest),
+        vscode.commands.registerCommand('protocolfile.showQuickActions', showQuickActions),
+        vscode.commands.registerCommand('protocolfile.validateAllFiles', quickValidateAllFiles),
+        vscode.commands.registerCommand('protocolfile.compareProtocolFiles', compareProtocolFiles),
+        vscode.commands.registerCommand('protocolfile.generateTestData', generateTestData),
+        vscode.commands.registerCommand('protocolfile.showTestLogs', showTestLogs),
+        vscode.commands.registerCommand('protocolfile.exportConfiguration', exportConfiguration),
+        vscode.commands.registerCommand('protocolfile.importConfiguration', importConfiguration)
+    ];
+
+    // Register event handlers
+    const eventHandlers = [
+        vscode.workspace.onDidSaveTextDocument(onDocumentSaved),
+        vscode.window.onDidChangeActiveTextEditor(updateStatusBar.bind(null, statusBarItem)),
+        vscode.workspace.onDidChangeTextDocument(onDocumentChanged)
+    ];
+
+    // Add to subscriptions
+    context.subscriptions.push(
+        ...commands,
+        ...eventHandlers,
+        diagnosticsCollection,
+        statusBarItem,
+        outputChannel
+    );
+
+    // Initial setup
+    updateStatusBar(statusBarItem, vscode.window.activeTextEditor);
+    showWelcomeMessage(context);
+}
+
+// ============================================================================
+// CONFIGURATION MANAGEMENT
+// ============================================================================
+
+async function loadConfiguration(): Promise<ProtocolFileConfig | null> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return null;
+    }
+
+    const configPath = path.join(workspaceFolder.uri.fsPath, 'protocolfile-config.json');
+    
+    try {
+        if (!fs.existsSync(configPath)) {
+            logMessage('info', `Configuration file not found at ${configPath}. Using default settings.`);
+            return getDefaultConfiguration();
+        }
+
+        const configContent = await fs.promises.readFile(configPath, 'utf8');
+        const config = JSON.parse(configContent) as ProtocolFileConfig;
+        
+        // Validate configuration against schema
+        const isValid = await validateConfiguration(config);
+        if (!isValid) {
+            vscode.window.showErrorMessage('Configuration file contains errors. Using default settings.');
+            return getDefaultConfiguration();
+        }
+
+        logMessage('info', 'Configuration loaded successfully');
+        return config;
+    } catch (error) {
+        logMessage('error', `Failed to load configuration: ${error}`);
+        vscode.window.showErrorMessage(`Failed to load configuration: ${error}`);
+        return getDefaultConfiguration();
+    }
+}
+
+async function validateConfiguration(config: ProtocolFileConfig): Promise<boolean> {
+    try {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) return false;
+
+        const schemaPath = path.join(workspaceFolder.uri.fsPath, 'schemas', 'protocolfile-config.schema.json');
+        
+        if (!fs.existsSync(schemaPath)) {
+            logMessage('warn', 'Configuration schema not found. Skipping validation.');
+            return true;
+        }
+
+        const schemaContent = await fs.promises.readFile(schemaPath, 'utf8');
+        const schema = JSON.parse(schemaContent);
+
+        const ajv = new Ajv();
+        const validate = ajv.compile(schema);
+        const valid = validate(config);
+
+        if (!valid) {
+            logMessage('error', `Configuration validation failed: ${JSON.stringify(validate.errors)}`);
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        logMessage('error', `Configuration validation error: ${error}`);
+        return false;
+    }
+}
+
+function getDefaultConfiguration(): ProtocolFileConfig {
+    return {
+        configVersion: "2.0",
+        projectName: "Default Laboratory Protocol Testing",
+        applicationPaths: {
+            serverDirectory: "../../software.comm",
+            clientDirectory: "../../software.gui",
+            serverExecutable: "software.comm.exe.bat",
+            serverExecutableAlt: "software.comm.exe",
+            clientExecutable: "software.gui.exe.bat",
+            clientExecutableAlt: "software.gui.exe"
+        },
+        configurationFiles: {
+            serverConfigFile: "appsettings.json",
+            clientConfigFile: "app.config",
+            backupSuffix: ".backup"
+        },
+        serverConfiguration: {
+            format: "json",
+            simulationProtocolKey: "SimulationProtocol",
+            simulationProtocolPrefix: "--SimulationMode true"
+        },
+        clientConfiguration: {
+            format: "xml",
+            simulationModeKey: "SimulationMode",
+            simulationModeValue: "true"
+        },
+        testExecution: {
+            startupDelay: 5,
+            shutdownTimeout: 30,
+            retryAttempts: 3
+        },
+        validation: {
+            enableSchemaValidation: true,
+            enableBusinessRuleValidation: true,
+            validateOnSave: true,
+            enableLiveValidation: true
+        },
+        logging: {
+            enableTestLogging: true,
+            logDirectory: "./logs",
+            logLevel: "info",
+            retainLogDays: 30,
+            logFormat: "timestamp"
+        },
+        errorHandling: {
+            autoRestoreOnFailure: true,
+            continueOnNonCriticalErrors: false
+        },
+        reporting: {
+            generateReports: true,
+            reportDirectory: "./reports",
+            reportFormats: ["json", "html"],
+            includeTimestamp: true,
+            includeSystemInfo: true
+        }
+    };
+}
+
+// ============================================================================
+// NEW COMMANDS
+// ============================================================================
+
+async function openConfigurationEditor() {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return;
+    }
+
+    const configPath = path.join(workspaceFolder.uri.fsPath, 'protocolfile-config.json');
+    
+    try {
+        // Create config file if it doesn't exist
+        if (!fs.existsSync(configPath)) {
+            const defaultConfig = getDefaultConfiguration();
+            await fs.promises.writeFile(configPath, JSON.stringify(defaultConfig, null, 2));
+            vscode.window.showInformationMessage('Created new configuration file');
+        }
+
+        // Open the configuration file
+        const doc = await vscode.workspace.openTextDocument(configPath);
+        await vscode.window.showTextDocument(doc);
+        
+        vscode.window.showInformationMessage('Configuration editor opened. Edit and save to apply changes.');
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to open configuration editor: ${error}`);
+    }
+}
+
+async function createConfigurationProfile() {
+    const profileName = await vscode.window.showInputBox({
+        prompt: 'Enter configuration profile name',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Profile name cannot be empty';
+            }
+            if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+                return 'Profile name can only contain letters, numbers, hyphens, and underscores';
+            }
+            return null;
+        }
+    });
+
+    if (!profileName) return;
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return;
+    }
+
+    try {
+        const profilesDir = path.join(workspaceFolder.uri.fsPath, 'profiles');
+        if (!fs.existsSync(profilesDir)) {
+            await fs.promises.mkdir(profilesDir, { recursive: true });
+        }
+
+        const profilePath = path.join(profilesDir, `${profileName}.protocolfile-config.json`);
+        
+        if (fs.existsSync(profilePath)) {
+            const overwrite = await vscode.window.showWarningMessage(
+                `Profile '${profileName}' already exists. Overwrite?`,
+                'Yes', 'No'
+            );
+            if (overwrite !== 'Yes') return;
+        }
+
+        const defaultConfig = getDefaultConfiguration();
+        defaultConfig.projectName = `${profileName} Laboratory Protocol Testing`;
+        defaultConfig.description = `Configuration profile for ${profileName}`;
+
+        await fs.promises.writeFile(profilePath, JSON.stringify(defaultConfig, null, 2));
+        
+        const action = await vscode.window.showInformationMessage(
+            `Configuration profile '${profileName}' created successfully!`,
+            'Open Profile', 'Copy to Main Config'
+        );
+
+        if (action === 'Open Profile') {
+            const doc = await vscode.workspace.openTextDocument(profilePath);
+            await vscode.window.showTextDocument(doc);
+        } else if (action === 'Copy to Main Config') {
+            const mainConfigPath = path.join(workspaceFolder.uri.fsPath, 'protocolfile-config.json');
+            await fs.promises.copyFile(profilePath, mainConfigPath);
+            vscode.window.showInformationMessage('Profile copied to main configuration');
+        }
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create configuration profile: ${error}`);
+    }
+}
+
+// ============================================================================
+// ENHANCED TEST EXECUTION
 // ============================================================================
 
 async function runIntegratedTest() {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || !shouldValidateDocument(editor.document)) {
-        vscode.window.showErrorMessage('📄 Please open a ProtocolFile or TestDataProtocolFile first');
+    if (!editor) {
+        vscode.window.showErrorMessage('❌ No active editor found');
         return;
     }
 
-    if (isTestRunning) {
+    if (currentTestSession) {
         const action = await vscode.window.showWarningMessage(
             '⚠️ A test is already running. Stop it first?',
             'Stop Current Test', 'Cancel'
@@ -89,78 +434,223 @@ async function runIntegratedTest() {
     }
 
     try {
-        await editor.document.save();
-        
-        const config = vscode.workspace.getConfiguration('protocolfile');
-        const testScenarioDir = path.dirname(editor.document.fileName);
-        const protocolFile = path.basename(editor.document.fileName);
-        
-        vscode.window.showInformationMessage(`🚀 Starting integrated test with ${protocolFile}...`);
+        // Load configuration
+        const config = await loadConfiguration();
+        if (!config) {
+            vscode.window.showErrorMessage('Failed to load configuration');
+            return;
+        }
+
+        // Validate protocol file first
+        const isValid = await validateProtocolFileInternal(editor.document);
+        if (!isValid) {
+            vscode.window.showErrorMessage('Protocol file validation failed');
+            return;
+        }
+
+        // Create test session
+        currentTestSession = {
+            id: generateSessionId(),
+            protocolFile: editor.document.fileName,
+            startTime: new Date(),
+            config: config,
+            status: 'preparing',
+            logs: []
+        };
+
+        logMessage('info', `Starting integrated test with ${path.basename(editor.document.fileName)}`);
         
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: "Running Integrated Test",
+            title: "Running Enhanced Integrated Test",
             cancellable: true
         }, async (progress, token) => {
-            
-            // Step 1: Validate protocol file
-            progress.report({ increment: 10, message: "Validating protocol file..." });
-            const isValid = await validateProtocolFileInternal(editor.document);
-            if (!isValid) {
-                throw new Error('Protocol file validation failed');
+            try {
+                // Execute test phases (without database)
+                await executeTestPhase(progress, token, 'Pre-test Commands', executePreTestCommands, 20);
+                await executeTestPhase(progress, token, 'Configuration Backup', backupConfigurations, 30);
+                await executeTestPhase(progress, token, 'Configuration Update', updateConfigurations, 40);
+                await executeTestPhase(progress, token, 'Server Startup', startServerApplication, 60);
+                await executeTestPhase(progress, token, 'Client Startup', startClientApplication, 80);
+                await executeTestPhase(progress, token, 'Post-test Commands', executePostTestCommands, 90);
+                
+                progress.report({ increment: 100, message: "Test scenario active!" });
+                
+                if (currentTestSession) {
+                    currentTestSession.status = 'running';
+                    showEnhancedTestControlPanel();
+                }
+
+            } catch (error) {
+                if (currentTestSession) {
+                    currentTestSession.status = 'failed';
+                }
+                throw error;
             }
-            
-            // Step 2: Find and validate configuration files
-            progress.report({ increment: 20, message: "Locating configuration files..." });
-            const configPaths = await findConfigurationFiles(config);
-            
-            // Step 3: Backup configurations
-            progress.report({ increment: 30, message: "Backing up configurations..." });
-            await backupConfigurations(configPaths);
-            
-            // Step 4: Update configurations
-            progress.report({ increment: 40, message: "Updating configurations..." });
-            await updateConfigurations(configPaths, editor.document.fileName);
-            
-            // Step 5: Start applications
-            progress.report({ increment: 60, message: "Starting server application..." });
-            await startServerApplication(configPaths, protocolFile);
-            
-            if (token.isCancellationRequested) {
-                await cleanupTest(configPaths);
-                return;
-            }
-            
-            progress.report({ increment: 80, message: "Starting client application..." });
-            await startClientApplication(configPaths, protocolFile);
-            
-            progress.report({ increment: 100, message: "Test scenario active!" });
-            
-            // Show test control panel
-            showTestControlPanel(protocolFile, configPaths);
         });
-        
+
     } catch (error) {
+        logMessage('error', `Test failed: ${error}`);
         vscode.window.showErrorMessage(`💥 Test failed: ${error}`);
         await stopRunningTest();
     }
 }
 
-async function findConfigurationFiles(config: vscode.WorkspaceConfiguration) {
+async function executeTestPhase(
+    progress: vscode.Progress<{increment: number; message: string}>,
+    token: vscode.CancellationToken,
+    phaseName: string,
+    phaseFunction: () => Promise<void>,
+    incrementTo: number
+): Promise<void> {
+    if (token.isCancellationRequested) {
+        throw new Error('Test cancelled by user');
+    }
+
+    progress.report({ increment: 0, message: phaseName });
+    logMessage('info', `Executing phase: ${phaseName}`);
+    
+    try {
+        await phaseFunction();
+        progress.report({ increment: incrementTo, message: `${phaseName} completed` });
+        logMessage('info', `Phase completed: ${phaseName}`);
+    } catch (error) {
+        logMessage('error', `Phase failed: ${phaseName} - ${error}`);
+        throw new Error(`${phaseName} failed: ${error}`);
+    }
+}
+
+// ============================================================================
+// COMMAND EXECUTION
+// ============================================================================
+
+async function executePreTestCommands(): Promise<void> {
+    const commands = currentTestSession?.config.testExecution?.preTestCommands;
+    if (!commands || commands.length === 0) {
+        return;
+    }
+
+    logMessage('info', 'Executing pre-test commands');
+    await executeCommands(commands, 'pre-test');
+}
+
+async function executePostTestCommands(): Promise<void> {
+    const commands = currentTestSession?.config.testExecution?.postTestCommands;
+    if (!commands || commands.length === 0) {
+        return;
+    }
+
+    logMessage('info', 'Executing post-test commands');
+    await executeCommands(commands, 'post-test');
+}
+
+async function executeCommands(commands: Command[], phase: string): Promise<void> {
+    for (const command of commands) {
+        await executeCommand(command, phase);
+    }
+}
+
+async function executeCommand(command: Command, phase: string): Promise<void> {
+    logMessage('info', `Executing ${phase} command: ${command.name}`);
+
+    return new Promise((resolve, reject) => {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const workingDir = command.workingDirectory 
+            ? path.resolve(workspaceFolder?.uri.fsPath || '', command.workingDirectory)
+            : workspaceFolder?.uri.fsPath;
+
+        const timeout = (command.timeout || 30) * 1000;
+        const args = command.args || [];
+        
+        const childProcess = child_process.spawn(command.command, args, {
+            cwd: workingDir,
+            stdio: 'pipe'
+        });
+
+        let output = '';
+        let errorOutput = '';
+
+        childProcess.stdout?.on('data', (data) => {
+            output += data.toString();
+        });
+
+        childProcess.stderr?.on('data', (data) => {
+            errorOutput += data.toString();
+        });
+
+        const timeoutId = setTimeout(() => {
+            childProcess.kill();
+            const error = new Error(`Command timeout: ${command.name}`);
+            if (command.continueOnError) {
+                logMessage('warn', `Command timeout (continuing): ${command.name}`);
+                resolve();
+            } else {
+                reject(error);
+            }
+        }, timeout);
+
+        childProcess.on('close', (code) => {
+            clearTimeout(timeoutId);
+            
+            if (output) {
+                logMessage('info', `Command output: ${output}`);
+            }
+            
+            if (code === 0) {
+                logMessage('info', `Command completed successfully: ${command.name}`);
+                resolve();
+            } else {
+                const error = new Error(`Command failed with code ${code}: ${command.name}\\n${errorOutput}`);
+                
+                if (command.continueOnError) {
+                    logMessage('warn', `Command failed (continuing): ${command.name} - ${error.message}`);
+                    resolve();
+                } else {
+                    logMessage('error', `Command failed: ${command.name} - ${error.message}`);
+                    reject(error);
+                }
+            }
+        });
+
+        childProcess.on('error', (error) => {
+            clearTimeout(timeoutId);
+            const commandError = new Error(`Failed to start command: ${command.name} - ${error.message}`);
+            
+            if (command.continueOnError) {
+                logMessage('warn', `Failed to start command (continuing): ${command.name} - ${error.message}`);
+                resolve();
+            } else {
+                logMessage('error', `Failed to start command: ${command.name} - ${error.message}`);
+                reject(commandError);
+            }
+        });
+    });
+}
+
+// ============================================================================
+// ENHANCED CONFIGURATION MANAGEMENT
+// ============================================================================
+
+async function backupConfigurations(): Promise<void> {
+    if (!currentTestSession) {
+        throw new Error('No active test session');
+    }
+
+    const config = currentTestSession.config;
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
         throw new Error('No workspace folder found');
     }
-    
-    const serverDir = path.resolve(workspaceFolder.uri.fsPath, config.get('serverDirectory', '../../software.comm'));
-    const clientDir = path.resolve(workspaceFolder.uri.fsPath, config.get('clientDirectory', '../../software.gui'));
-    
-    const serverConfigFile = config.get('serverConfigFile', 'appsettings.json');
-    const clientConfigFile = config.get('clientConfigFile', 'app.config');
-    
-    const serverConfig = path.join(serverDir, serverConfigFile);
-    const clientConfig = path.join(clientDir, clientConfigFile);
-    
+
+    const serverDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.serverDirectory);
+    const clientDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.clientDirectory);
+    const backupSuffix = config.configurationFiles.backupSuffix || '.backup';
+
+    const serverConfig = path.join(serverDir, config.configurationFiles.serverConfigFile);
+    const clientConfig = path.join(clientDir, config.configurationFiles.clientConfigFile);
+    const serverBackup = serverConfig + backupSuffix;
+    const clientBackup = clientConfig + backupSuffix;
+
     // Validate paths exist
     if (!fs.existsSync(serverConfig)) {
         throw new Error(`Server configuration not found: ${serverConfig}`);
@@ -168,281 +658,863 @@ async function findConfigurationFiles(config: vscode.WorkspaceConfiguration) {
     if (!fs.existsSync(clientConfig)) {
         throw new Error(`Client configuration not found: ${clientConfig}`);
     }
-    
-    return {
-        serverDir,
-        clientDir,
-        serverConfig,
-        clientConfig,
-        serverExecutable: config.get('serverExecutable', 'software.comm.exe.bat'),
-        clientExecutable: config.get('clientExecutable', 'software.gui.exe.bat')
-    };
+
+    // Create backups
+    await fs.promises.copyFile(serverConfig, serverBackup);
+    await fs.promises.copyFile(clientConfig, clientBackup);
+
+    logMessage('info', 'Configuration files backed up successfully');
 }
 
-async function backupConfigurations(configPaths: any) {
-    const serverBackup = configPaths.serverConfig + '.backup';
-    const clientBackup = configPaths.clientConfig + '.backup';
-    
-    await fs.promises.copyFile(configPaths.serverConfig, serverBackup);
-    await fs.promises.copyFile(configPaths.clientConfig, clientBackup);
-    
-    console.log('Configuration files backed up');
+async function updateConfigurations(): Promise<void> {
+    if (!currentTestSession) {
+        throw new Error('No active test session');
+    }
+
+    await updateServerConfiguration();
+    await updateClientConfiguration();
 }
 
-async function updateConfigurations(configPaths: any, protocolFilePath: string) {
-    // Update server configuration (JSON)
-    await updateServerConfig(configPaths.serverConfig, protocolFilePath);
-    
-    // Update client configuration (XML)
-    await updateClientConfig(configPaths.clientConfig);
-}
+async function updateServerConfiguration(): Promise<void> {
+    if (!currentTestSession) return;
 
-async function updateServerConfig(serverConfigPath: string, protocolFilePath: string) {
+    const config = currentTestSession.config;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        throw new Error('No workspace folder found');
+    }
+
+    const serverDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.serverDirectory);
+    const serverConfigPath = path.join(serverDir, config.configurationFiles.serverConfigFile);
+    const protocolFilePath = path.resolve(currentTestSession.protocolFile);
+
+    const serverConfig = config.serverConfiguration;
+    const simulationProtocolKey = serverConfig?.simulationProtocolKey || 'SimulationProtocol';
+    const simulationProtocolPrefix = serverConfig?.simulationProtocolPrefix || '--SimulationMode true';
+
     try {
-        const configContent = await fs.promises.readFile(serverConfigPath, 'utf8');
-        const config = JSON.parse(configContent);
-        
-        // Update simulation protocol path
-        const absoluteProtocolPath = path.resolve(protocolFilePath);
-        config.SimulationProtocol = `--SimulationMode true ${absoluteProtocolPath}`;
-        
-        await fs.promises.writeFile(serverConfigPath, JSON.stringify(config, null, 2));
-        console.log('Server configuration updated');
-        
+        if (serverConfig?.format === 'json') {
+            const configContent = await fs.promises.readFile(serverConfigPath, 'utf8');
+            const configObj = JSON.parse(configContent);
+            
+            // Update simulation protocol
+            configObj[simulationProtocolKey] = `${simulationProtocolPrefix} ${protocolFilePath}`;
+            
+            // Apply additional settings
+            if (serverConfig.additionalSettings) {
+                Object.assign(configObj, serverConfig.additionalSettings);
+            }
+            
+            await fs.promises.writeFile(serverConfigPath, JSON.stringify(configObj, null, 2));
+        } else {
+            // Handle XML/INI formats if needed
+            throw new Error(`Server configuration format '${serverConfig?.format}' not yet supported`);
+        }
+
+        logMessage('info', 'Server configuration updated successfully');
     } catch (error) {
         throw new Error(`Failed to update server configuration: ${error}`);
     }
 }
 
-async function updateClientConfig(clientConfigPath: string) {
+async function updateClientConfiguration(): Promise<void> {
+    if (!currentTestSession) return;
+
+    const config = currentTestSession.config;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        throw new Error('No workspace folder found');
+    }
+
+    const clientDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.clientDirectory);
+    const clientConfigPath = path.join(clientDir, config.configurationFiles.clientConfigFile);
+
+    const clientConfig = config.clientConfiguration;
+    const simulationModeKey = clientConfig?.simulationModeKey || 'SimulationMode';
+    const simulationModeValue = clientConfig?.simulationModeValue || 'true';
+
     try {
-        const configContent = await fs.promises.readFile(clientConfigPath, 'utf8');
-        
-        // Simple XML manipulation for app.config
-        let updatedConfig = configContent;
-        
-        // Check if SimulationMode setting exists
-        const simModeRegex = /<add\s+key="SimulationMode"\s+value="[^"]*"\s*\/>/;
-        const newSimModeSetting = '<add key="SimulationMode" value="true" />';
-        
-        if (simModeRegex.test(updatedConfig)) {
-            // Replace existing setting
-            updatedConfig = updatedConfig.replace(simModeRegex, newSimModeSetting);
-        } else {
-            // Add new setting before closing appSettings tag
-            const appSettingsEndRegex = /<\/appSettings>/;
-            if (appSettingsEndRegex.test(updatedConfig)) {
-                updatedConfig = updatedConfig.replace(appSettingsEndRegex, `    ${newSimModeSetting}\n  </appSettings>`);
+        if (clientConfig?.format === 'xml') {
+            const configContent = await fs.promises.readFile(clientConfigPath, 'utf8');
+            let updatedConfig = configContent;
+
+            // Update simulation mode
+            const simModeRegex = new RegExp(`<add\\s+key="${simulationModeKey}"\\s+value="[^"]*"\\s*\\/>`);
+            const newSimModeSetting = `<add key="${simulationModeKey}" value="${simulationModeValue}" />`;
+
+            if (simModeRegex.test(updatedConfig)) {
+                updatedConfig = updatedConfig.replace(simModeRegex, newSimModeSetting);
+            } else {
+                const appSettingsEndRegex = /<\/appSettings>/;
+                if (appSettingsEndRegex.test(updatedConfig)) {
+                    updatedConfig = updatedConfig.replace(appSettingsEndRegex, `    ${newSimModeSetting}\n  </appSettings>`);
+                }
             }
+
+            // Apply additional settings
+            if (clientConfig.additionalSettings) {
+                for (const [key, value] of Object.entries(clientConfig.additionalSettings)) {
+                    const settingRegex = new RegExp(`<add\\s+key="${key}"\\s+value="[^"]*"\\s*\\/>`);
+                    const newSetting = `<add key="${key}" value="${value}" />`;
+                    
+                    if (settingRegex.test(updatedConfig)) {
+                        updatedConfig = updatedConfig.replace(settingRegex, newSetting);
+                    } else {
+                        const appSettingsEndRegex = /<\/appSettings>/;
+                        if (appSettingsEndRegex.test(updatedConfig)) {
+                            updatedConfig = updatedConfig.replace(appSettingsEndRegex, `    ${newSetting}\n  </appSettings>`);
+                        }
+                    }
+                }
+            }
+
+            await fs.promises.writeFile(clientConfigPath, updatedConfig);
+        } else {
+            throw new Error(`Client configuration format '${clientConfig?.format}' not yet supported`);
         }
-        
-        await fs.promises.writeFile(clientConfigPath, updatedConfig);
-        console.log('Client configuration updated');
-        
+
+        logMessage('info', 'Client configuration updated successfully');
     } catch (error) {
         throw new Error(`Failed to update client configuration: ${error}`);
     }
 }
 
-async function startServerApplication(configPaths: any, protocolFile: string) {
-    const serverExePath = path.join(configPaths.serverDir, configPaths.serverExecutable);
-    const serverExeAlt = path.join(configPaths.serverDir, configPaths.serverExecutable.replace('.bat', ''));
-    
-    let executablePath = serverExePath;
-    if (!fs.existsSync(serverExePath) && fs.existsSync(serverExeAlt)) {
-        executablePath = serverExeAlt;
+// ============================================================================
+// APPLICATION STARTUP
+// ============================================================================
+
+async function startServerApplication(): Promise<void> {
+    if (!currentTestSession) {
+        throw new Error('No active test session');
     }
-    
+
+    const config = currentTestSession.config;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        throw new Error('No workspace folder found');
+    }
+
+    const serverDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.serverDirectory);
+    const primaryExe = path.join(serverDir, config.applicationPaths.serverExecutable);
+    const altExe = config.applicationPaths.serverExecutableAlt 
+        ? path.join(serverDir, config.applicationPaths.serverExecutableAlt)
+        : null;
+
+    let executablePath = primaryExe;
+    if (!fs.existsSync(primaryExe) && altExe && fs.existsSync(altExe)) {
+        executablePath = altExe;
+    }
+
     if (!fs.existsSync(executablePath)) {
         throw new Error(`Server executable not found: ${executablePath}`);
     }
-    
-    serverProcess = spawn(executablePath, [], {
-        cwd: configPaths.serverDir,
-        detached: false,
-        stdio: 'pipe'
+
+    logMessage('info', `Starting server application: ${executablePath}`);
+
+    return new Promise((resolve, reject) => {
+        const serverProcess = child_process.spawn(executablePath, [], {
+            cwd: serverDir,
+            detached: true,
+            stdio: 'ignore'
+        });
+
+        currentTestSession!.serverProcess = serverProcess;
+
+        serverProcess.on('error', (error) => {
+            logMessage('error', `Failed to start server: ${error}`);
+            reject(new Error(`Failed to start server: ${error}`));
+        });
+
+        // Give the server time to start
+        const startupDelay = (config.testExecution?.startupDelay || 5) * 1000;
+        setTimeout(() => {
+            logMessage('info', 'Server application started successfully');
+            resolve();
+        }, startupDelay);
     });
-    
-    serverProcess.on('error', (error) => {
-        vscode.window.showErrorMessage(`Server process error: ${error.message}`);
-    });
-    
-    // Wait for server startup
-    const startupDelay = vscode.workspace.getConfiguration('protocolfile').get('startupDelay', 5);
-    await new Promise(resolve => setTimeout(resolve, startupDelay * 1000));
-    
-    console.log('Server application started');
 }
 
-async function startClientApplication(configPaths: any, protocolFile: string) {
-    const clientExePath = path.join(configPaths.clientDir, configPaths.clientExecutable);
-    const clientExeAlt = path.join(configPaths.clientDir, configPaths.clientExecutable.replace('.bat', ''));
-    
-    let executablePath = clientExePath;
-    if (!fs.existsSync(clientExePath) && fs.existsSync(clientExeAlt)) {
-        executablePath = clientExeAlt;
+async function startClientApplication(): Promise<void> {
+    if (!currentTestSession) {
+        throw new Error('No active test session');
     }
-    
+
+    const config = currentTestSession.config;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        throw new Error('No workspace folder found');
+    }
+
+    const clientDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.clientDirectory);
+    const primaryExe = path.join(clientDir, config.applicationPaths.clientExecutable);
+    const altExe = config.applicationPaths.clientExecutableAlt
+        ? path.join(clientDir, config.applicationPaths.clientExecutableAlt)
+        : null;
+
+    let executablePath = primaryExe;
+    if (!fs.existsSync(primaryExe) && altExe && fs.existsSync(altExe)) {
+        executablePath = altExe;
+    }
+
     if (!fs.existsSync(executablePath)) {
         throw new Error(`Client executable not found: ${executablePath}`);
     }
-    
-    clientProcess = spawn(executablePath, [], {
-        cwd: configPaths.clientDir,
-        detached: false,
-        stdio: 'pipe'
+
+    logMessage('info', `Starting client application: ${executablePath}`);
+
+    return new Promise((resolve, reject) => {
+        const clientProcess = child_process.spawn(executablePath, [], {
+            cwd: clientDir,
+            detached: true,
+            stdio: 'ignore'
+        });
+
+        currentTestSession!.clientProcess = clientProcess;
+
+        clientProcess.on('error', (error) => {
+            logMessage('error', `Failed to start client: ${error}`);
+            reject(new Error(`Failed to start client: ${error}`));
+        });
+
+        // Give the client time to start
+        setTimeout(() => {
+            logMessage('info', 'Client application started successfully');
+            resolve();
+        }, 2000);
     });
-    
-    clientProcess.on('error', (error) => {
-        vscode.window.showErrorMessage(`Client process error: ${error.message}`);
-    });
-    
-    isTestRunning = true;
-    console.log('Client application started');
 }
 
-function showTestControlPanel(protocolFile: string, configPaths: any) {
-    const panel = vscode.window.createWebviewPanel(
-        'testControlPanel',
-        `Test Control - ${protocolFile}`,
+// ============================================================================
+// ENHANCED UI COMPONENTS
+// ============================================================================
+
+function showEnhancedTestControlPanel() {
+    if (!currentTestSession) return;
+
+    testControlPanel = vscode.window.createWebviewPanel(
+        'enhancedTestControl',
+        'Enhanced Test Control Panel',
         vscode.ViewColumn.Two,
         { enableScripts: true }
     );
-    
-    panel.webview.html = getTestControlHTML(protocolFile);
-    
-    panel.webview.onDidReceiveMessage(async (message) => {
+
+    testControlPanel.webview.html = getEnhancedTestControlHTML();
+
+    testControlPanel.webview.onDidReceiveMessage(async (message) => {
         switch (message.command) {
             case 'stopTest':
                 await stopRunningTest();
-                panel.dispose();
                 break;
             case 'restartTest':
                 await stopRunningTest();
-                setTimeout(() => runIntegratedTest(), 2000);
+                setTimeout(() => runIntegratedTest(), 1000);
+                break;
+            case 'showLogs':
+                await showTestLogs();
+                break;
+            case 'generateReport':
+                await generateTestReport();
                 break;
         }
     });
-    
-    // Auto-cleanup when panel is closed
-    panel.onDidDispose(async () => {
-        if (isTestRunning) {
-            await stopRunningTest();
-        }
+
+    testControlPanel.onDidDispose(() => {
+        testControlPanel = null;
     });
 }
 
-async function stopRunningTest() {
-    if (!isTestRunning) {
+function getEnhancedTestControlHTML(): string {
+    if (!currentTestSession) return '';
+
+    const session = currentTestSession;
+    const runtime = Math.floor((Date.now() - session.startTime.getTime()) / 1000);
+
+    return `<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Enhanced Test Control Panel</title>
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                padding: 20px; 
+                background: var(--vscode-editor-background);
+                color: var(--vscode-foreground);
+            }
+            .status-panel {
+                background: var(--vscode-textBlockQuote-background);
+                border: 1px solid var(--vscode-textBlockQuote-border);
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            .status-header {
+                font-size: 18px;
+                font-weight: bold;
+                color: var(--vscode-textLink-foreground);
+                margin-bottom: 15px;
+            }
+            .status-item {
+                display: flex;
+                justify-content: space-between;
+                margin: 8px 0;
+                padding: 5px 0;
+                border-bottom: 1px solid var(--vscode-widget-border);
+            }
+            .status-label {
+                font-weight: bold;
+            }
+            .status-running {
+                color: #28a745;
+            }
+            .status-stopped {
+                color: #dc3545;
+            }
+            .control-buttons {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            button {
+                background: var(--vscode-button-background);
+                color: var(--vscode-button-foreground);
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            button:hover {
+                background: var(--vscode-button-hoverBackground);
+            }
+            .danger {
+                background: var(--vscode-errorForeground);
+            }
+            .info {
+                background: var(--vscode-textLink-foreground);
+            }
+            .logs-section {
+                background: var(--vscode-editor-background);
+                border: 1px solid var(--vscode-widget-border);
+                border-radius: 4px;
+                padding: 15px;
+                margin-top: 20px;
+                max-height: 300px;
+                overflow-y: auto;
+                font-family: monospace;
+                font-size: 12px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="status-panel">
+            <div class="status-header">🔬 Enhanced Test Session Status</div>
+            
+            <div class="status-item">
+                <span class="status-label">Session ID:</span>
+                <span>${session.id}</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Protocol File:</span>
+                <span>${path.basename(session.protocolFile)}</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Status:</span>
+                <span class="status-running">${session.status.toUpperCase()}</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Runtime:</span>
+                <span>${Math.floor(runtime / 60)}m ${runtime % 60}s</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Server Process:</span>
+                <span class="${session.serverProcess ? 'status-running' : 'status-stopped'}">
+                    ${session.serverProcess ? 'Running (PID: ' + session.serverProcess.pid + ')' : 'Stopped'}
+                </span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Client Process:</span>
+                <span class="${session.clientProcess ? 'status-running' : 'status-stopped'}">
+                    ${session.clientProcess ? 'Running (PID: ' + session.clientProcess.pid + ')' : 'Stopped'}
+                </span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Configuration:</span>
+                <span>${session.config.projectName || 'Default'}</span>
+            </div>
+        </div>
+
+        <div class="control-buttons">
+            <button onclick="showLogs()" class="info">📋 Show Logs</button>
+            <button onclick="generateReport()" class="info">📊 Generate Report</button>
+            <button onclick="restartTest()">🔄 Restart Test</button>
+            <button onclick="stopTest()" class="danger">🛑 Stop Test</button>
+        </div>
+
+        <div class="logs-section">
+            <strong>Recent Log Entries:</strong><br>
+            ${session.logs.slice(-10).map(log => '<div>' + log + '</div>').join('')}
+        </div>
+
+        <script>
+            const vscode = acquireVsCodeApi();
+            
+            function stopTest() {
+                vscode.postMessage({ command: 'stopTest' });
+            }
+            
+            function restartTest() {
+                vscode.postMessage({ command: 'restartTest' });
+            }
+            
+            function showLogs() {
+                vscode.postMessage({ command: 'showLogs' });
+            }
+            
+            function generateReport() {
+                vscode.postMessage({ command: 'generateReport' });
+            }
+        </script>
+    </body>
+    </html>`;
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function generateSessionId(): string {
+    return `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function logMessage(level: 'info' | 'warn' | 'error' | 'debug', message: string): void {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+    
+    outputChannel.appendLine(logEntry);
+    
+    if (currentTestSession) {
+        currentTestSession.logs.push(logEntry);
+        
+        // Keep only last 100 log entries
+        if (currentTestSession.logs.length > 100) {
+            currentTestSession.logs = currentTestSession.logs.slice(-100);
+        }
+    }
+    
+    // Also log to console for development
+    console.log(logEntry);
+}
+
+async function showTestLogs(): Promise<void> {
+    outputChannel.show();
+}
+
+async function generateTestReport(): Promise<void> {
+    if (!currentTestSession) {
+        vscode.window.showWarningMessage('No active test session');
         return;
     }
-    
+
+    const reportConfig = currentTestSession.config.reporting;
+    if (!reportConfig?.generateReports) {
+        vscode.window.showWarningMessage('Report generation is disabled in configuration');
+        return;
+    }
+
+    try {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            throw new Error('No workspace folder found');
+        }
+
+        const reportDir = path.resolve(workspaceFolder.uri.fsPath, reportConfig.reportDirectory || './reports');
+        
+        // Create report directory if it doesn't exist
+        if (!fs.existsSync(reportDir)) {
+            await fs.promises.mkdir(reportDir, { recursive: true });
+        }
+
+        const timestamp = reportConfig.includeTimestamp ? `_${Date.now()}` : '';
+        const sessionData = {
+            sessionId: currentTestSession.id,
+            protocolFile: currentTestSession.protocolFile,
+            startTime: currentTestSession.startTime,
+            endTime: new Date(),
+            status: currentTestSession.status,
+            configuration: currentTestSession.config.projectName,
+            logs: currentTestSession.logs,
+            systemInfo: reportConfig.includeSystemInfo ? {
+                platform: process.platform,
+                nodeVersion: process.version,
+                extensionVersion: "2.0.0"
+            } : undefined
+        };
+
+        const formats = reportConfig.reportFormats || ['json'];
+        
+        for (const format of formats) {
+            const fileName = `test_report${timestamp}.${format}`;
+            const filePath = path.join(reportDir, fileName);
+            
+            let content: string;
+            
+            switch (format) {
+                case 'json':
+                    content = JSON.stringify(sessionData, null, 2);
+                    break;
+                case 'html':
+                    content = generateHtmlReport(sessionData);
+                    break;
+                default:
+                    throw new Error(`Unsupported report format: ${format}`);
+            }
+            
+            await fs.promises.writeFile(filePath, content);
+        }
+
+        vscode.window.showInformationMessage(`Test report generated in ${reportDir}`);
+    } catch (error) {
+        logMessage('error', `Failed to generate report: ${error}`);
+        vscode.window.showErrorMessage(`Failed to generate report: ${error}`);
+    }
+}
+
+function generateHtmlReport(sessionData: any): string {
+    return `<!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test Report - ${sessionData.sessionId}</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .section { margin: 20px 0; }
+            .logs { background: #f8f9fa; padding: 15px; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+            .status-success { color: #28a745; }
+            .status-error { color: #dc3545; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+            th { background-color: #f2f2f2; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>ProtocolFile Test Report</h1>
+            <p><strong>Session ID:</strong> ${sessionData.sessionId}</p>
+            <p><strong>Generated:</strong> ${new Date().toISOString()}</p>
+        </div>
+
+        <div class="section">
+            <h2>Test Summary</h2>
+            <table>
+                <tr><th>Property</th><th>Value</th></tr>
+                <tr><td>Protocol File</td><td>${path.basename(sessionData.protocolFile)}</td></tr>
+                <tr><td>Start Time</td><td>${new Date(sessionData.startTime).toLocaleString()}</td></tr>
+                <tr><td>End Time</td><td>${new Date(sessionData.endTime).toLocaleString()}</td></tr>
+                <tr><td>Duration</td><td>${Math.floor((new Date(sessionData.endTime).getTime() - new Date(sessionData.startTime).getTime()) / 1000)} seconds</td></tr>
+                <tr><td>Status</td><td class="status-${sessionData.status === 'completed' ? 'success' : 'error'}">${sessionData.status.toUpperCase()}</td></tr>
+                <tr><td>Configuration</td><td>${sessionData.configuration}</td></tr>
+            </table>
+        </div>
+
+        ${sessionData.systemInfo ? `
+        <div class="section">
+            <h2>System Information</h2>
+            <table>
+                <tr><th>Property</th><th>Value</th></tr>
+                <tr><td>Platform</td><td>${sessionData.systemInfo.platform}</td></tr>
+                <tr><td>Node Version</td><td>${sessionData.systemInfo.nodeVersion}</td></tr>
+                <tr><td>Extension Version</td><td>${sessionData.systemInfo.extensionVersion}</td></tr>
+            </table>
+        </div>
+        ` : ''}
+
+        <div class="section">
+            <h2>Execution Logs</h2>
+            <div class="logs">
+                ${sessionData.logs.map((log: string) => '<div>' + log + '</div>').join('')}
+            </div>
+        </div>
+    </body>
+    </html>`;
+}
+
+// ============================================================================
+// CLEANUP AND DEACTIVATION
+// ============================================================================
+
+async function stopRunningTest(): Promise<void> {
+    if (!currentTestSession) {
+        vscode.window.showWarningMessage('No test is currently running');
+        return;
+    }
+
+    logMessage('info', 'Stopping test session');
+
     try {
         // Stop processes
-        if (serverProcess) {
-            serverProcess.kill();
-            serverProcess = null;
+        if (currentTestSession.serverProcess) {
+            currentTestSession.serverProcess.kill();
+            currentTestSession.serverProcess = undefined;
         }
-        if (clientProcess) {
-            clientProcess.kill();
-            clientProcess = null;
+
+        if (currentTestSession.clientProcess) {
+            currentTestSession.clientProcess.kill();
+            currentTestSession.clientProcess = undefined;
         }
-        
+
         // Restore configurations
         await restoreConfigurations();
-        
-        isTestRunning = false;
-        vscode.window.showInformationMessage('🛑 Test stopped and configurations restored');
-        
+
+        // Update session status
+        currentTestSession.status = 'stopped';
+
+        // Generate final report if enabled
+        if (currentTestSession.config.reporting?.generateReports) {
+            await generateTestReport();
+        }
+
+        logMessage('info', 'Test session stopped successfully');
+        vscode.window.showInformationMessage('✅ Test stopped and configurations restored');
+
     } catch (error) {
+        logMessage('error', `Error stopping test: ${error}`);
         vscode.window.showErrorMessage(`Error stopping test: ${error}`);
+    } finally {
+        currentTestSession = null;
+        
+        if (testControlPanel) {
+            testControlPanel.dispose();
+            testControlPanel = null;
+        }
     }
 }
 
-async function restoreConfigurations() {
+async function restoreConfigurations(): Promise<void> {
+    if (!currentTestSession) return;
+
+    const config = currentTestSession.config;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+
+    const backupSuffix = config.configurationFiles.backupSuffix || '.backup';
+    
+    const serverDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.serverDirectory);
+    const clientDir = path.resolve(workspaceFolder.uri.fsPath, config.applicationPaths.clientDirectory);
+    
+    const serverConfig = path.join(serverDir, config.configurationFiles.serverConfigFile);
+    const clientConfig = path.join(clientDir, config.configurationFiles.clientConfigFile);
+    const serverBackup = serverConfig + backupSuffix;
+    const clientBackup = clientConfig + backupSuffix;
+
     try {
-        const config = vscode.workspace.getConfiguration('protocolfile');
-        const configPaths = await findConfigurationFiles(config);
-        
-        const serverBackup = configPaths.serverConfig + '.backup';
-        const clientBackup = configPaths.clientConfig + '.backup';
-        
         if (fs.existsSync(serverBackup)) {
-            await fs.promises.copyFile(serverBackup, configPaths.serverConfig);
+            await fs.promises.copyFile(serverBackup, serverConfig);
             await fs.promises.unlink(serverBackup);
+            logMessage('info', 'Server configuration restored');
         }
-        
+
         if (fs.existsSync(clientBackup)) {
-            await fs.promises.copyFile(clientBackup, configPaths.clientConfig);
+            await fs.promises.copyFile(clientBackup, clientConfig);
             await fs.promises.unlink(clientBackup);
+            logMessage('info', 'Client configuration restored');
         }
-        
-        console.log('Configurations restored');
-        
     } catch (error) {
-        console.error('Error restoring configurations:', error);
+        logMessage('error', `Failed to restore configurations: ${error}`);
+        throw new Error(`Failed to restore configurations: ${error}`);
     }
 }
 
-async function cleanupTest(configPaths: any) {
-    await stopRunningTest();
+// ============================================================================
+// ADDITIONAL EXPORT FUNCTIONS (keeping existing functionality)
+// ============================================================================
+
+async function exportConfiguration(): Promise<void> {
+    const config = await loadConfiguration();
+    if (!config) return;
+
+    const content = JSON.stringify(config, null, 2);
+    const doc = await vscode.workspace.openTextDocument({
+        content: content,
+        language: 'json'
+    });
+    
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('Configuration exported to new document');
+}
+
+async function importConfiguration(): Promise<void> {
+    const files = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectMany: false,
+        filters: {
+            'JSON files': ['json']
+        },
+        openLabel: 'Import Configuration'
+    });
+
+    if (!files || files.length === 0) return;
+
+    try {
+        const content = await fs.promises.readFile(files[0].fsPath, 'utf8');
+        const config = JSON.parse(content) as ProtocolFileConfig;
+        
+        const isValid = await validateConfiguration(config);
+        if (!isValid) {
+            vscode.window.showErrorMessage('Invalid configuration file');
+            return;
+        }
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder found');
+            return;
+        }
+
+        const configPath = path.join(workspaceFolder.uri.fsPath, 'protocolfile-config.json');
+        await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2));
+        
+        vscode.window.showInformationMessage('Configuration imported successfully');
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to import configuration: ${error}`);
+    }
+}
+
+// Include all the other existing functions (generateTemplate, validateProtocolFile, etc.)
+// These would remain largely the same but can leverage the new configuration system
+
+export function deactivate() {
+    if (currentTestSession) {
+        stopRunningTest();
+    }
+    
+    diagnosticsCollection.dispose();
+    outputChannel.dispose();
+    
+    if (testControlPanel) {
+        testControlPanel.dispose();
+    }
 }
 
 // ============================================================================
-// CONFIGURATION MANAGEMENT
+// MISSING FUNCTIONS FROM ORIGINAL EXTENSION
 // ============================================================================
 
-async function configureTestPaths() {
-    const config = vscode.workspace.getConfiguration('protocolfile');
-    
-    const serverDir = await vscode.window.showInputBox({
-        prompt: 'Enter server directory path',
-        value: config.get('serverDirectory', '../../software.comm'),
-        validateInput: (value) => {
-            if (!value) return 'Server directory cannot be empty';
-            return null;
-        }
-    });
-    
-    if (!serverDir) return;
-    
-    const clientDir = await vscode.window.showInputBox({
-        prompt: 'Enter client directory path',
-        value: config.get('clientDirectory', '../../software.gui'),
-        validateInput: (value) => {
-            if (!value) return 'Client directory cannot be empty';
-            return null;
-        }
-    });
-    
-    if (!clientDir) return;
-    
-    const serverExe = await vscode.window.showInputBox({
-        prompt: 'Enter server executable name',
-        value: config.get('serverExecutable', 'software.comm.exe.bat')
-    });
-    
-    if (!serverExe) return;
-    
-    const clientExe = await vscode.window.showInputBox({
-        prompt: 'Enter client executable name',
-        value: config.get('clientExecutable', 'software.gui.exe.bat')
-    });
-    
-    if (!clientExe) return;
-    
-    // Update configuration
-    await config.update('serverDirectory', serverDir, vscode.ConfigurationTarget.Workspace);
-    await config.update('clientDirectory', clientDir, vscode.ConfigurationTarget.Workspace);
-    await config.update('serverExecutable', serverExe, vscode.ConfigurationTarget.Workspace);
-    await config.update('clientExecutable', clientExe, vscode.ConfigurationTarget.Workspace);
-    
-    vscode.window.showInformationMessage('✅ Test paths configured successfully!');
+function setupStatusBar(statusBarItem: vscode.StatusBarItem) {
+    statusBarItem.command = 'protocolfile.showQuickActions';
+    statusBarItem.tooltip = 'ProtocolFile Quick Actions';
 }
 
-// ============================================================================
-// BUILT-IN VALIDATION (REPLACES ConfigValidator.exe)
-// ============================================================================
+function updateStatusBar(statusBarItem: vscode.StatusBarItem, editor?: vscode.TextEditor) {
+    if (editor && shouldValidateDocument(editor.document)) {
+        statusBarItem.text = '$(file-code) ProtocolFile';
+        statusBarItem.show();
+    } else {
+        statusBarItem.hide();
+    }
+}
+
+function shouldValidateDocument(document: vscode.TextDocument): boolean {
+    const fileName = document.fileName.toLowerCase();
+    return fileName.includes('protocolfile') || fileName.includes('testdataprotocolfile') || fileName.endsWith('.protocol.json');
+}
+
+function isTestDataFile(document: vscode.TextDocument): boolean {
+    const fileName = document.fileName.toLowerCase();
+    return fileName.includes('testdataprotocolfile') || fileName.includes('testdata');
+}
+
+async function generateTemplate() {
+    try {
+        const templateOptions = [
+            { label: '📄 Basic ProtocolFile', value: 'basic', description: 'Standard laboratory protocol structure' },
+            { label: '🧪 NL1XT Protocol', value: 'nl1xt', description: 'NL1XT assay-specific template' },
+            { label: '🧪 AD1XT Protocol', value: 'ad1xt', description: 'AD1XT assay-specific template' },
+            { label: '🧪 AntiHIV Protocol', value: 'antihiv', description: 'AntiHIV assay-specific template' },
+            { label: '📊 Test Data File', value: 'testdata', description: 'Simulation test scenarios' }
+        ];
+
+        const selectedTemplate = await vscode.window.showQuickPick(templateOptions, {
+            placeHolder: 'Select a template type'
+        });
+
+        if (!selectedTemplate) return;
+
+        const protocolName = await vscode.window.showInputBox({
+            prompt: 'Enter protocol name',
+            value: `${selectedTemplate.value}Protocol_${new Date().toISOString().split('T')[0]}`,
+            validateInput: (value) => {
+                if (!value || value.trim() === '') {
+                    return 'Protocol name cannot be empty';
+                }
+                return null;
+            }
+        });
+
+        if (!protocolName) return;
+
+        const template = generateTemplateContent(selectedTemplate.value, protocolName);
+        const doc = await vscode.workspace.openTextDocument({
+            content: JSON.stringify(template, null, 2),
+            language: 'json'
+        });
+
+        await vscode.window.showTextDocument(doc);
+        
+        const action = await vscode.window.showInformationMessage(
+            `✅ Template '${selectedTemplate.label}' created successfully!`,
+            'Save As...', 'Validate'
+        );
+
+        if (action === 'Save As...') {
+            await vscode.commands.executeCommand('workbench.action.files.saveAs');
+        } else if (action === 'Validate') {
+            await validateProtocolFile();
+        }
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error generating template: ${error}`);
+    }
+}
+
+function generateTemplateContent(type: string, name: string): any {
+    const baseProtocolTemplate: any = {
+        "$schema": "./schemas/ProtocolFile.schema.json",
+        "MethodInformation": {
+            "Id": "TDM_auto",
+            "DisplayName": name,
+            "Version": "1.0",
+            "MaximumNumberOfProcessingCycles": 1,
+            "AssayInformation": {
+                "AssayType": type.toUpperCase(),
+                "AssayName": name,
+                "AssayVersion": "1.0"
+            }
+        },
+        "WorkflowSteps": [],
+        "RequiredPlates": [],
+        "LayoutRules": []
+    };
+
+    const testDataTemplate: any = {
+        "$schema": "./schemas/testDataProtocolFile.schema.json",
+        "TestDataInformation": {
+            "TestDataId": name,
+            "Description": `Test data for ${name}`,
+            "TestDataVersion": "1.0"
+        },
+        "SimulationData": [],
+        "ErrorScenarios": []
+    };
+
+    return type === 'testdata' ? testDataTemplate : baseProtocolTemplate;
+}
 
 async function validateProtocolFile() {
     const editor = vscode.window.activeTextEditor;
@@ -477,7 +1549,6 @@ async function validateProtocolFile() {
                 '✅ ProtocolFile validation successful!',
                 'Run Test'
             );
-            
             if (action === 'Run Test') {
                 await runIntegratedTest();
             }
@@ -493,7 +1564,7 @@ async function validateProtocolFileInternal(document: vscode.TextDocument, showM
 
         const content = document.getText();
         let jsonData;
-        
+
         try {
             jsonData = JSON.parse(content);
         } catch (parseError) {
@@ -513,495 +1584,139 @@ async function validateProtocolFileInternal(document: vscode.TextDocument, showM
         // Determine which schema to use
         const isTestData = isTestDataFile(document);
         const schemaPath = isTestData ? 
-            path.join(__dirname, '..', 'schemas', 'testDataProtocolFile.schema.json') :
-            path.join(__dirname, '..', 'schemas', 'ProtocolFile.schema.json');
-        
-        if (!fs.existsSync(schemaPath)) {
+            './schemas/testDataProtocolFile.schema.json' : 
+            './schemas/ProtocolFile.schema.json';
+
+        // Load schema
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
             if (showMessages) {
-                vscode.window.showErrorMessage(`❌ Schema file not found: ${schemaPath}`);
+                vscode.window.showErrorMessage('No workspace folder found');
             }
             return false;
         }
 
-        const schemaContent = await fs.promises.readFile(schemaPath, 'utf8');
-        const schema = JSON.parse(schemaContent);
+        const fullSchemaPath = path.join(workspaceFolder.uri.fsPath, schemaPath);
         
-        // Validate using AJV
-        const ajv = new Ajv({ allErrors: true });
+        if (!fs.existsSync(fullSchemaPath)) {
+            if (showMessages) {
+                vscode.window.showWarningMessage(`Schema file not found: ${schemaPath}`);
+            }
+            return true; // Skip validation if schema not found
+        }
+
+        const schemaContent = await fs.promises.readFile(fullSchemaPath, 'utf8');
+        const schema = JSON.parse(schemaContent);
+
+        // Validate
+        const ajv = new Ajv();
         const validate = ajv.compile(schema);
         const valid = validate(jsonData);
-        
-        clearDiagnostics(document.uri);
-        
-        if (!valid && validate.errors) {
-            const diagnostics = validate.errors.map(error => {
-                const line = findLineForPath(content, error.instancePath);
-                const range = new vscode.Range(line, 0, line, 100);
-                
+
+        if (!valid) {
+            const diagnostics = validate.errors?.map(error => {
+                const range = new vscode.Range(0, 0, 0, 10); // Simplified range
                 return new vscode.Diagnostic(
                     range,
                     `${error.instancePath}: ${error.message}`,
                     vscode.DiagnosticSeverity.Error
                 );
-            });
-            
+            }) || [];
+
             setDiagnostics(document.uri, diagnostics);
             
             if (showMessages) {
-                const action = await vscode.window.showErrorMessage(
-                    '❌ Validation failed. Check Problems panel.',
-                    'Show Problems'
-                );
-                
-                if (action === 'Show Problems') {
-                    await vscode.commands.executeCommand('workbench.panel.markers.view.focus');
-                }
+                vscode.window.showErrorMessage(`❌ Validation failed: ${validate.errors?.[0]?.message}`);
             }
             return false;
         }
-        
+
+        // Clear diagnostics on success
+        clearDiagnostics(document.uri);
         return true;
 
     } catch (error) {
         if (showMessages) {
-            vscode.window.showErrorMessage(`💥 Validation error: ${error}`);
+            vscode.window.showErrorMessage(`Validation error: ${error}`);
         }
         return false;
     }
 }
 
-function findLineForPath(content: string, path: string): number {
-    // Simple line finding - could be improved
-    const lines = content.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        if (path && lines[i].includes(path.split('/').pop() || '')) {
-            return i;
+function clearDiagnostics(uri: vscode.Uri) {
+    diagnosticsCollection.delete(uri);
+}
+
+function setDiagnostics(uri: vscode.Uri, diagnostics: vscode.Diagnostic[]) {
+    diagnosticsCollection.set(uri, diagnostics);
+}
+
+async function configureTestPaths() {
+    vscode.window.showInformationMessage(
+        'Legacy test path configuration. Use "Open Configuration Editor" for enhanced features.',
+        'Open Configuration Editor'
+    ).then(selection => {
+        if (selection === 'Open Configuration Editor') {
+            openConfigurationEditor();
         }
-    }
-    return 0;
+    });
 }
 
-async function validateProtocolFileAuto(document: vscode.TextDocument, showSuccessMessage = false) {
-    const isValid = await validateProtocolFileInternal(document, showSuccessMessage);
-    // Auto-validation doesn't show success messages unless explicitly requested
-}
-
-// ============================================================================
-// TEMPLATE GENERATION
-// ============================================================================
-
-async function generateTemplate() {
-    try {
-        const templateOptions = [
-            { 
-                label: '📄 Basic ProtocolFile', 
-                value: 'basic',
-                description: 'Standard laboratory protocol template'
-            },
-            { 
-                label: '🧪 NL1XT Protocol', 
-                value: 'nl1xt',
-                description: 'NL1XT assay protocol template'
-            },
-            { 
-                label: '🧪 AD1XT Protocol', 
-                value: 'ad1xt',
-                description: 'AD1XT assay protocol template'
-            },
-            { 
-                label: '🧪 AntiHIV Protocol', 
-                value: 'antihiv',
-                description: 'AntiHIV assay protocol template'
-            },
-            { 
-                label: '📊 Test Data File', 
-                value: 'testdata',
-                description: 'Simulation test data template'
-            }
-        ];
-
-        const selectedTemplate = await vscode.window.showQuickPick(templateOptions, {
-            placeHolder: 'Select a template type'
-        });
-
-        if (!selectedTemplate) return;
-
-        const protocolName = await vscode.window.showInputBox({
-            prompt: 'Enter protocol name',
-            value: `${selectedTemplate.value}Protocol_${new Date().toISOString().split('T')[0]}`,
-            validateInput: (value) => {
-                if (!value || value.trim() === '') {
-                    return 'Protocol name cannot be empty';
-                }
-                return null;
-            }
-        });
-
-        if (!protocolName) return;
-
-        const template = generateTemplateContent(selectedTemplate.value, protocolName);
-        
-        const doc = await vscode.workspace.openTextDocument({
-            content: JSON.stringify(template, null, 2),
-            language: 'json'
-        });
-        
-        await vscode.window.showTextDocument(doc);
-        
-        const action = await vscode.window.showInformationMessage(
-            `✅ Template '${selectedTemplate.label}' created successfully!`,
-            'Save As...', 'Validate'
-        );
-        
-        if (action === 'Save As...') {
-            await vscode.commands.executeCommand('workbench.action.files.saveAs');
-        } else if (action === 'Validate') {
-            await validateProtocolFile();
-        }
-        
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error generating template: ${error}`);
-    }
-}
-
-async function createQuickTemplate(templateType: string) {
-    try {
-        const timestamp = new Date().toISOString().split('T')[0];
-        const protocolName = `${templateType}Protocol_${timestamp}`;
-        
-        const template = generateTemplateContent(templateType, protocolName);
-        
-        const doc = await vscode.workspace.openTextDocument({
-            content: JSON.stringify(template, null, 2),
-            language: 'json'
-        });
-        
-        await vscode.window.showTextDocument(doc);
-        vscode.window.showInformationMessage(`🚀 Quick ${templateType} template created!`);
-        
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error creating quick template: ${error}`);
-    }
-}
-
-function generateTemplateContent(type: string, name: string): any {
-    const baseProtocolTemplate = {
-        "$schema": "./schemas/ProtocolFile.schema.json",
-        "MethodInformation": {
-            "Id": "TDM_auto",
-            "DisplayName": name,
-            "Version": "1.0",
-            "MaximumNumberOfProcessingCycles": 1,
-            "MainTitle": "Laboratory Protocol",
-            "SubTitle": "Automated Analysis",
-            "OrderNumber": "92111",
-            "MaximumNumberOfSamples": 192,
-            "MaximumNumberOfAssays": 1,
-            "SamplesLayoutType": "SAMPLES_LAYOUT_COMBINED"
-        },
-        "AssayInformation": [],
-        "LoadingWorkflowSteps": [],
-        "ProcessingWorkflowSteps": []
-    };
-
-    const testDataTemplate = {
-        "$schema": "./schemas/testDataProtocolFile.schema.json",
-        "SimulatedData": [
-            {
-                "TrackNumber": "3",
-                "Counter": 0,
-                "MainErrorCode": 0,
-                "PlacedLabwareItems": [
-                    {
-                        "Barcode": "Track3_Sample01",
-                        "LabwareId": "301",
-                        "PositionId": "1",
-                        "MainErrorCode": 0
-                    }
-                ]
-            }
-        ]
-    };
-
-    switch (type) {
-        case 'testdata':
-            return testDataTemplate;
-        
-        case 'nl1xt':
-            return {
-                ...baseProtocolTemplate,
-                "AssayInformation": [{
-                    "Type": "NL1XT",
-                    "DisplayName": "NL1XT",
-                    "MinimumNumberOfPatientSamplesOnFirstPlate": 5,
-                    "StopPreparationWithFailedCalibrator": false,
-                    "StopPreparationWithFailedControl": false,
-                    "ValidityOfCalibrationInDays": 5,
-                    "CalibratorLayoutRules": [],
-                    "ControlLayoutRules": []
-                }]
-            };
-        
-        case 'ad1xt':
-            return {
-                ...baseProtocolTemplate,
-                "AssayInformation": [{
-                    "Type": "AD1XT",
-                    "DisplayName": "AD1XT",
-                    "MinimumNumberOfPatientSamplesOnFirstPlate": 5,
-                    "StopPreparationWithFailedCalibrator": false,
-                    "StopPreparationWithFailedControl": false,
-                    "ValidityOfCalibrationInDays": 5,
-                    "CalibratorLayoutRules": [],
-                    "ControlLayoutRules": []
-                }]
-            };
-        
-        case 'antihiv':
-            return {
-                ...baseProtocolTemplate,
-                "AssayInformation": [{
-                    "Type": "AntiHIV",
-                    "DisplayName": "AntiHIV",
-                    "MinimumNumberOfPatientSamplesOnFirstPlate": 5,
-                    "StopPreparationWithFailedCalibrator": false,
-                    "StopPreparationWithFailedControl": false,
-                    "ValidityOfCalibrationInDays": 5,
-                    "CalibratorLayoutRules": [],
-                    "ControlLayoutRules": []
-                }]
-            };
-        
-        default:
-            return baseProtocolTemplate;
-    }
-}
-
-async function generateTestData() {
-    const scenarios = [
-        { label: '✅ Happy Path - Counterweight', value: 'counterweight-happy' },
-        { label: '❌ Barcode Read Error - Counterweight', value: 'counterweight-bre' },
-        { label: '✅ Happy Path - Patient Samples', value: 'patient-happy' },
-        { label: '❌ No Carrier Error - Patient Samples', value: 'patient-nce' },
-        { label: '❌ Wrong Carrier Error - Patient Samples', value: 'patient-wce' },
-        { label: '✅ Happy Path - MFX Carrier', value: 'mfx-happy' }
+async function showQuickActions() {
+    const actions = [
+        { label: '✅ Validate Current File', action: 'validate' },
+        { label: '📄 Generate Template', action: 'template' },
+        { label: '🚀 Run Enhanced Test', action: 'integratedTest' },
+        { label: '⚙️ Open Configuration Editor', action: 'configEditor' },
+        { label: '📊 Create Configuration Profile', action: 'createProfile' },
+        { label: '📊 Generate Test Data', action: 'testData' },
+        { label: '🔍 Compare Files', action: 'compare' },
+        { label: '📊 Validate All Files', action: 'validateAll' },
+        { label: '📋 Show Test Logs', action: 'logs' },
+        { label: '🛑 Stop Running Test', action: 'stopTest' },
+        { label: '❓ Show Help', action: 'help' }
     ];
 
-    const selected = await vscode.window.showQuickPick(scenarios, {
-        placeHolder: 'Select a test scenario to generate'
+    const selected = await vscode.window.showQuickPick(actions, {
+        placeHolder: 'Select a ProtocolFile action'
     });
 
     if (!selected) return;
 
-    const template = generateTestDataScenario(selected.value);
-    
-    const doc = await vscode.workspace.openTextDocument({
-        content: JSON.stringify(template, null, 2),
-        language: 'json'
-    });
-    
-    await vscode.window.showTextDocument(doc);
-    vscode.window.showInformationMessage(`📊 Test scenario '${selected.label}' created!`);
-}
-
-function generateTestDataScenario(scenario: string): any {
-    const baseTemplate = {
-        "$schema": "./schemas/testDataProtocolFile.schema.json",
-        "SimulatedData": []
-    };
-
-    // Add scenario-specific data based on the snippets
-    // This would contain the actual test data scenarios
-    return baseTemplate;
-}
-
-// ============================================================================
-// LEGACY SUPPORT & OTHER FUNCTIONS
-// ============================================================================
-
-async function runTestWithProtocol() {
-    // Show option to use integrated test runner
-    const action = await vscode.window.showInformationMessage(
-        '🚀 Choose test runner method:',
-        'Integrated Test Runner', 'Legacy Batch Script'
-    );
-    
-    if (action === 'Integrated Test Runner') {
-        await runIntegratedTest();
-    } else if (action === 'Legacy Batch Script') {
-        await runLegacyBatchScript();
-    }
-}
-
-async function runLegacyBatchScript() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || !shouldValidateDocument(editor.document)) {
-        vscode.window.showErrorMessage('📄 Please open a ProtocolFile first');
-        return;
-    }
-
-    try {
-        await editor.document.save();
-        
-        const protocolPath = editor.document.fileName;
-        const protocolDir = path.dirname(protocolPath);
-        
-        const testScripts = [
-            path.join(protocolDir, 'run_test.bat'),
-            path.join(protocolDir, 'run_test.cmd'),
-            path.join(protocolDir, 'test.bat')
-        ];
-        
-        let testScript = testScripts.find(script => fs.existsSync(script));
-        
-        if (!testScript) {
-            const action = await vscode.window.showErrorMessage(
-                `🔍 No test script found in: ${protocolDir}`,
-                'Create Test Script', 'Continue Anyway'
-            );
-            
-            if (action === 'Create Test Script') {
-                await createTestScript(protocolDir);
-                return;
-            } else if (action !== 'Continue Anyway') {
-                return;
-            }
-            
-            testScript = path.join(protocolDir, 'run_test.bat');
-        }
-
-        const protocolName = path.basename(protocolPath);
-        const scriptName = path.basename(testScript);
-        
-        const confirmed = await vscode.window.showInformationMessage(
-            `🚀 Run test "${scriptName}" with "${protocolName}"?`,
-            'Run Test', 'Cancel'
-        );
-        
-        if (confirmed !== 'Run Test') return;
-
-        const terminal = vscode.window.createTerminal({
-            name: `Test: ${protocolName}`,
-            cwd: protocolDir
-        });
-        
-        if (fs.existsSync(testScript)) {
-            terminal.sendText(`${testScript}`);
-        } else {
-            terminal.sendText(`echo "Test script not found: ${testScript}"`);
-            terminal.sendText(`echo "Please create the test script first."`);
-        }
-        
-        terminal.show();
-        
-        vscode.window.showInformationMessage(
-            `⚡ Test started! Check terminal for progress.`
-        );
-        
-    } catch (error) {
-        vscode.window.showErrorMessage(`💥 Error running test: ${error}`);
-    }
-}
-
-async function createTestScript(dir: string) {
-    const scriptContent = `@echo off
-setlocal enabledelayedexpansion
-
-REM ============================================================================
-REM CONFIGURATION SECTION - MODIFY THESE VARIABLES AS NEEDED
-REM ============================================================================
-
-REM === APPLICATION PATHS ===
-set "SERVER_DIR=..\\..\\software.comm"
-set "CLIENT_DIR=..\\..\\software.gui"
-set "SERVER_CONFIG_FILE=appsettings.json"
-set "CLIENT_CONFIG_FILE=app.config"
-set "SERVER_EXECUTABLE=software.comm.exe.bat"
-set "SERVER_EXECUTABLE_ALT=software.comm.exe"
-set "CLIENT_EXECUTABLE=software.gui.exe.bat"
-set "CLIENT_EXECUTABLE_ALT=software.gui.exe"
-
-echo ========================================
-echo        TEST SCENARIO AUTOMATION
-echo ========================================
-echo.
-echo Use the VSCode extension's "Run Integrated Test" for better experience!
-echo This script is provided for legacy compatibility.
-echo.
-pause
-
-REM Add your test commands here
-echo Test completed!
-pause
-`;
-
-    const scriptPath = path.join(dir, 'run_test.bat');
-    
-    try {
-        await fs.promises.writeFile(scriptPath, scriptContent);
-        
-        const action = await vscode.window.showInformationMessage(
-            `✅ Test script created: ${scriptPath}`,
-            'Open Script', 'Run Now'
-        );
-        
-        if (action === 'Open Script') {
-            const doc = await vscode.workspace.openTextDocument(scriptPath);
-            await vscode.window.showTextDocument(doc);
-        } else if (action === 'Run Now') {
-            await runTestWithProtocol();
-        }
-        
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error creating test script: ${error}`);
-    }
-}
-
-// ============================================================================
-// FILE COMPARISON
-// ============================================================================
-
-async function compareProtocolFiles() {
-    try {
-        const options: vscode.OpenDialogOptions = {
-            canSelectFiles: true,
-            canSelectFolders: false,
-            canSelectMany: true,
-            filters: {
-                'ProtocolFiles': ['json']
-            },
-            title: 'Select ProtocolFiles to compare'
-        };
-
-        const files = await vscode.window.showOpenDialog(options);
-        if (!files || files.length === 0) {
-            vscode.window.showWarningMessage('📁 No files selected');
-            return;
-        }
-        
-        if (files.length === 1) {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || !shouldValidateDocument(editor.document)) {
-                vscode.window.showWarningMessage('📄 Open a ProtocolFile to compare with');
-                return;
-            }
-            
-            await vscode.commands.executeCommand('vscode.diff', 
-                vscode.Uri.file(editor.document.fileName),
-                files[0], 
-                `${path.basename(editor.document.fileName)} ↔ ${path.basename(files[0].fsPath)}`
-            );
-            
-        } else if (files.length >= 2) {
-            await vscode.commands.executeCommand('vscode.diff', 
-                files[0], 
-                files[1], 
-                `${path.basename(files[0].fsPath)} ↔ ${path.basename(files[1].fsPath)}`
-            );
-        }
-        
-    } catch (error) {
-        vscode.window.showErrorMessage(`💥 Error comparing files: ${error}`);
+    switch (selected.action) {
+        case 'validate':
+            await validateProtocolFile();
+            break;
+        case 'template':
+            await generateTemplate();
+            break;
+        case 'integratedTest':
+            await runIntegratedTest();
+            break;
+        case 'configEditor':
+            await openConfigurationEditor();
+            break;
+        case 'createProfile':
+            await createConfigurationProfile();
+            break;
+        case 'testData':
+            await generateTestData();
+            break;
+        case 'compare':
+            await compareProtocolFiles();
+            break;
+        case 'validateAll':
+            await quickValidateAllFiles();
+            break;
+        case 'logs':
+            await showTestLogs();
+            break;
+        case 'stopTest':
+            await stopRunningTest();
+            break;
+        case 'help':
+            await showHelpPanel();
+            break;
     }
 }
 
@@ -1017,35 +1732,36 @@ async function quickValidateAllFiles() {
         title: "Validating all ProtocolFiles...",
         cancellable: true
     }, async (progress, token) => {
-        const protocolFiles: string[] = [];
+        const protocolFiles = [];
         
         for (const folder of workspaceFolders) {
             const files = await findProtocolFiles(folder.uri.fsPath);
             protocolFiles.push(...files);
         }
-        
+
         if (protocolFiles.length === 0) {
             vscode.window.showInformationMessage('📝 No ProtocolFiles found');
             return;
         }
-        
+
         let validFiles = 0;
         let invalidFiles = 0;
-        
+
         for (let i = 0; i < protocolFiles.length; i++) {
             if (token.isCancellationRequested) break;
-            
+
             const file = protocolFiles[i];
             const fileName = path.basename(file);
             
-            progress.report({ 
+            progress.report({
                 increment: (100 / protocolFiles.length),
                 message: `Validating ${fileName}...`
             });
-            
+
             try {
                 const document = await vscode.workspace.openTextDocument(file);
                 const isValid = await validateProtocolFileInternal(document);
+                
                 if (isValid) {
                     validFiles++;
                 } else {
@@ -1055,7 +1771,7 @@ async function quickValidateAllFiles() {
                 invalidFiles++;
             }
         }
-        
+
         const action = await vscode.window.showInformationMessage(
             `📊 Validation complete! ✅ ${validFiles} valid, ❌ ${invalidFiles} invalid`,
             'Show Problems'
@@ -1079,7 +1795,10 @@ async function findProtocolFiles(dir: string): Promise<string[]> {
             if (entry.isDirectory() && !entry.name.startsWith('.')) {
                 const subFiles = await findProtocolFiles(fullPath);
                 files.push(...subFiles);
-            } else if ((entry.name.includes('ProtocolFile') || entry.name.includes('TestDataProtocolFile')) && entry.name.endsWith('.json')) {
+            } else if (
+                (entry.name.includes('ProtocolFile') || entry.name.includes('TestDataProtocolFile')) && 
+                entry.name.endsWith('.json')
+            ) {
                 files.push(fullPath);
             }
         }
@@ -1090,91 +1809,165 @@ async function findProtocolFiles(dir: string): Promise<string[]> {
     return files;
 }
 
-// ============================================================================
-// STATUS BAR AND UI
-// ============================================================================
+async function compareProtocolFiles() {
+    try {
+        const files = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectMany: true,
+            filters: {
+                'JSON files': ['json']
+            },
+            openLabel: 'Select files to compare'
+        });
 
-function setupStatusBar(statusBarItem: vscode.StatusBarItem) {
-    statusBarItem.command = 'protocolfile.showQuickActions';
-    statusBarItem.tooltip = 'ProtocolFile Quick Actions';
-}
+        if (!files || files.length === 0) {
+            vscode.window.showWarningMessage('📁 No files selected');
+            return;
+        }
 
-function updateStatusBar(statusBarItem: vscode.StatusBarItem, editor?: vscode.TextEditor) {
-    if (editor && shouldValidateDocument(editor.document)) {
-        statusBarItem.text = '$(file-code) ProtocolFile';
-        statusBarItem.show();
-    } else {
-        statusBarItem.hide();
+        if (files.length === 1) {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !shouldValidateDocument(editor.document)) {
+                vscode.window.showWarningMessage('📄 Open a ProtocolFile to compare with');
+                return;
+            }
+            
+            await vscode.commands.executeCommand(
+                'vscode.diff',
+                vscode.Uri.file(editor.document.fileName),
+                files[0],
+                `${path.basename(editor.document.fileName)} ↔ ${path.basename(files[0].fsPath)}`
+            );
+        } else if (files.length >= 2) {
+            await vscode.commands.executeCommand(
+                'vscode.diff',
+                files[0],
+                files[1],
+                `${path.basename(files[0].fsPath)} ↔ ${path.basename(files[1].fsPath)}`
+            );
+        }
+    } catch (error) {
+        vscode.window.showErrorMessage(`💥 Error comparing files: ${error}`);
     }
 }
 
-async function showQuickActions() {
-    const actions = [
-        { label: '✅ Validate Current File', action: 'validate' },
-        { label: '📄 Generate Template', action: 'template' },
-        { label: '🚀 Run Integrated Test', action: 'integratedTest' },
-        { label: '📊 Generate Test Data', action: 'testData' },
-        { label: '🔍 Compare Files', action: 'compare' },
-        { label: '📊 Validate All Files', action: 'validateAll' },
-        { label: '⚙️ Configure Test Paths', action: 'configure' },
-        { label: '🛑 Stop Running Test', action: 'stopTest' },
-        { label: '❓ Show Help', action: 'help' }
-    ];
-    
-    const selected = await vscode.window.showQuickPick(actions, {
-        placeHolder: 'Select a ProtocolFile action'
-    });
-    
-    if (!selected) return;
-    
-    switch (selected.action) {
-        case 'validate':
-            await validateProtocolFile();
-            break;
-        case 'template':
-            await generateTemplate();
-            break;
-        case 'integratedTest':
-            await runIntegratedTest();
-            break;
-        case 'testData':
-            await generateTestData();
-            break;
-        case 'compare':
-            await compareProtocolFiles();
-            break;
-        case 'validateAll':
-            await quickValidateAllFiles();
-            break;
-        case 'configure':
-            await configureTestPaths();
-            break;
-        case 'stopTest':
-            await stopRunningTest();
-            break;
-        case 'help':
-            await showHelpPanel();
-            break;
+async function generateTestData() {
+    try {
+        const testDataOptions = [
+            { label: '✅ Happy Path Scenario', value: 'happy', description: 'Error-free test execution' },
+            { label: '❌ Barcode Read Error (BRE)', value: 'bre', description: 'Barcode reading failure' },
+            { label: '❌ No Carrier Error (NCE)', value: 'nce', description: 'Missing carrier error' },
+            { label: '❌ Wrong Carrier Error (WCE)', value: 'wce', description: 'Incorrect carrier error' },
+            { label: '🔄 Complete Test Set', value: 'complete', description: 'All error scenarios' }
+        ];
+
+        const selectedScenario = await vscode.window.showQuickPick(testDataOptions, {
+            placeHolder: 'Select test data scenario'
+        });
+
+        if (!selectedScenario) return;
+
+        const testDataName = await vscode.window.showInputBox({
+            prompt: 'Enter test data name',
+            value: `TestData_${selectedScenario.value}_${new Date().toISOString().split('T')[0]}`
+        });
+
+        if (!testDataName) return;
+
+        const testDataContent = generateTestDataContent(selectedScenario.value, testDataName);
+        const doc = await vscode.workspace.openTextDocument({
+            content: JSON.stringify(testDataContent, null, 2),
+            language: 'json'
+        });
+
+        await vscode.window.showTextDocument(doc);
+        vscode.window.showInformationMessage(`✅ Test data '${selectedScenario.label}' created successfully!`);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error generating test data: ${error}`);
     }
 }
 
-// ============================================================================
-// DIAGNOSTIC MANAGEMENT
-// ============================================================================
+function generateTestDataContent(scenario: string, name: string): any {
+    const baseTestData: any = {
+        "$schema": "./schemas/testDataProtocolFile.schema.json",
+        "TestDataInformation": {
+            "TestDataId": name,
+            "Description": `Test data scenario: ${scenario}`,
+            "TestDataVersion": "1.0",
+            "ScenarioType": scenario
+        },
+        "SimulationData": [],
+        "ErrorScenarios": []
+    };
 
-const diagnosticsCollection = vscode.languages.createDiagnosticCollection('protocolfile');
+    // Add scenario-specific data based on type
+    switch (scenario) {
+        case 'happy':
+            baseTestData.SimulationData = [
+                {
+                    "ItemType": "Sample",
+                    "Barcode": "12345678",
+                    "ExpectedResult": "Success"
+                }
+            ];
+            break;
+        case 'bre':
+            baseTestData.ErrorScenarios = [
+                {
+                    "ErrorType": "BarcodeReadError",
+                    "ErrorCode": 5,
+                    "Description": "Barcode cannot be read"
+                }
+            ];
+            break;
+        case 'nce':
+            baseTestData.ErrorScenarios = [
+                {
+                    "ErrorType": "NoCarrierError",
+                    "ErrorCode": 9,
+                    "Description": "No carrier detected"
+                }
+            ];
+            break;
+        case 'wce':
+            baseTestData.ErrorScenarios = [
+                {
+                    "ErrorType": "WrongCarrierError",
+                    "ErrorCode": 100,
+                    "Description": "Wrong carrier type detected"
+                }
+            ];
+            break;
+        case 'complete':
+            baseTestData.SimulationData = [
+                { 
+                    "ItemType": "Sample", 
+                    "Barcode": "12345678", 
+                    "ExpectedResult": "Success" 
+                }
+            ];
+            baseTestData.ErrorScenarios = [
+                { 
+                    "ErrorType": "BarcodeReadError", 
+                    "ErrorCode": 5, 
+                    "Description": "Barcode cannot be read" 
+                },
+                { 
+                    "ErrorType": "NoCarrierError", 
+                    "ErrorCode": 9, 
+                    "Description": "No carrier detected" 
+                },
+                { 
+                    "ErrorType": "WrongCarrierError", 
+                    "ErrorCode": 100, 
+                    "Description": "Wrong carrier type detected" 
+                }
+            ];
+            break;
+    }
 
-function clearDiagnostics(uri: vscode.Uri) {
-    diagnosticsCollection.delete(uri);
+    return baseTestData;
 }
-
-function setDiagnostics(uri: vscode.Uri, diagnostics: vscode.Diagnostic[]) {
-    diagnosticsCollection.set(uri, diagnostics);
-}
-
-// ============================================================================
-// HELP AND WELCOME
-// ============================================================================
 
 async function showHelpPanel() {
     const panel = vscode.window.createWebviewPanel(
@@ -1183,129 +1976,17 @@ async function showHelpPanel() {
         vscode.ViewColumn.Two,
         { enableScripts: true }
     );
-    
+
     panel.webview.html = getHelpHTML();
 }
 
-async function showWelcomeMessage(context: vscode.ExtensionContext) {
-    const hasShownWelcome = context.globalState.get('protocolfile.hasShownWelcome', false);
-    
-    if (!hasShownWelcome) {
-        const action = await vscode.window.showInformationMessage(
-            '🎉 ProtocolFile Extension activated! Ready to boost your testing workflow.',
-            'Show Help', 'Create First Protocol', 'Don\'t Show Again'
-        );
-        
-        if (action === 'Show Help') {
-            await showHelpPanel();
-        } else if (action === 'Create First Protocol') {
-            await generateTemplate();
-        }
-        
-        if (action === 'Don\'t Show Again') {
-            await context.globalState.update('protocolfile.hasShownWelcome', true);
-        }
-    }
-}
-
-function getTestControlHTML(protocolFile: string): string {
-    return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Test Control Panel</title>
-        <style>
-            body { 
-                font-family: Arial, sans-serif; 
-                padding: 20px; 
-                line-height: 1.6;
-                color: var(--vscode-foreground);
-                background-color: var(--vscode-editor-background);
-            }
-            h1 { color: var(--vscode-textLink-foreground); }
-            .status { 
-                background: var(--vscode-textBlockQuote-background); 
-                padding: 15px; 
-                border-left: 4px solid var(--vscode-textBlockQuote-border);
-                margin: 15px 0;
-                border-radius: 4px;
-            }
-            .button { 
-                background: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                padding: 10px 20px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                margin: 5px;
-                font-size: 14px;
-            }
-            .button:hover {
-                background: var(--vscode-button-hoverBackground);
-            }
-            .stop-button {
-                background: var(--vscode-errorForeground);
-                color: white;
-            }
-            .info {
-                background: var(--vscode-editorInfo-background);
-                color: var(--vscode-editorInfo-foreground);
-                padding: 10px;
-                border-radius: 4px;
-                margin: 10px 0;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>🚀 Test Control Panel</h1>
-        
-        <div class="status">
-            <h3>📄 Active Protocol: ${protocolFile}</h3>
-            <p>✅ Server and client applications are running</p>
-            <p>⚙️ Configurations have been updated</p>
-            <p>🔄 Test scenario is active</p>
-        </div>
-        
-        <div class="info">
-            <strong>💡 Instructions:</strong>
-            <ul>
-                <li>Your server and client applications are now running with the test protocol</li>
-                <li>Use the applications to perform your testing</li>
-                <li>When finished, click "Stop Test" to restore original configurations</li>
-                <li>The applications will continue running until you close them manually</li>
-            </ul>
-        </div>
-        
-        <div>
-            <button class="button stop-button" onclick="stopTest()">🛑 Stop Test & Restore Config</button>
-            <button class="button" onclick="restartTest()">🔄 Restart Test</button>
-        </div>
-        
-        <script>
-            const vscode = acquireVsCodeApi();
-            
-            function stopTest() {
-                vscode.postMessage({ command: 'stopTest' });
-            }
-            
-            function restartTest() {
-                vscode.postMessage({ command: 'restartTest' });
-            }
-        </script>
-    </body>
-    </html>`;
-}
-
 function getHelpHTML(): string {
-    return `
-    <!DOCTYPE html>
+    return `<!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ProtocolFile Help</title>
+        <title>ProtocolFile Enhanced Help</title>
         <style>
             body { 
                 font-family: Arial, sans-serif; 
@@ -1328,109 +2009,91 @@ function getHelpHTML(): string {
                 border-radius: 4px;
                 font-family: monospace;
             }
-            .feature {
-                background: var(--vscode-editorInfo-background);
-                padding: 10px;
-                border-radius: 4px;
-                margin: 10px 0;
-            }
         </style>
     </head>
     <body>
-        <h1>🚀 ProtocolFile Extension Help</h1>
+        <h1>🚀 ProtocolFile Enhanced Help</h1>
         
         <h2>🎯 Key Features</h2>
-        
-        <div class="feature">
-            <h3>🔧 Integrated Test Runner</h3>
-            <p>Run laboratory tests without external dependencies. The extension handles:</p>
-            <ul>
-                <li>✅ Built-in JSON schema validation</li>
-                <li>⚙️ Automatic configuration backup/restore</li>
-                <li>🚀 Server and client application management</li>
-                <li>📊 Real-time test control panel</li>
-            </ul>
-        </div>
+        <ul>
+            <li>🔧 Advanced Configuration Management</li>
+            <li>🗄️ Database Integration</li>
+            <li>📊 Enhanced Reporting</li>
+            <li>🛡️ Enterprise Error Handling</li>
+        </ul>
         
         <h2>📋 Quick Actions</h2>
         <div class="command">
-            <strong>Generate Template:</strong> <span class="shortcut">Ctrl+Shift+P</span> → "ProtocolFile: Generate Template"<br>
-            Create laboratory protocol templates (ProtocolFile or TestDataProtocolFile)
+            <strong>Open Configuration Editor:</strong> <span class="shortcut">Ctrl+Shift+C</span><br>
+            Edit the main protocolfile-config.json file
+        </div>
+        
+        <div class="command">
+            <strong>Run Enhanced Test:</strong> <span class="shortcut">Ctrl+Shift+T</span><br>
+            Execute complete test scenario with database and reporting
         </div>
         
         <div class="command">
             <strong>Validate File:</strong> <span class="shortcut">Ctrl+Shift+V</span><br>
-            Validate current ProtocolFile against schema using built-in validator
+            Validate current protocol file against schema
         </div>
         
         <div class="command">
-            <strong>Run Integrated Test:</strong> <span class="shortcut">Ctrl+Shift+T</span><br>
-            Start complete test scenario with automatic configuration management
+            <strong>Generate Template:</strong> <span class="shortcut">Ctrl+Shift+N</span><br>
+            Create new protocol templates
         </div>
-        
-        <div class="command">
-            <strong>Configure Test Paths:</strong> Command Palette → "ProtocolFile: Configure Test Paths"<br>
-            Set up server/client directories and executable paths
-        </div>
-        
-        <h2>📊 File Types Supported</h2>
-        <ul>
-            <li><strong>ProtocolFile.json:</strong> Laboratory protocol definitions</li>
-            <li><strong>TestDataProtocolFile.json:</strong> Simulation test data</li>
-            <li><strong>*.protocol.json:</strong> Protocol files with custom extension</li>
-        </ul>
-        
-        <h2>🎨 Templates Available</h2>
-        <ul>
-            <li>📄 Basic ProtocolFile - Standard laboratory protocol</li>
-            <li>🧪 NL1XT Protocol - NL1XT assay template</li>
-            <li>🧪 AD1XT Protocol - AD1XT assay template</li>
-            <li>🧪 AntiHIV Protocol - AntiHIV assay template</li>
-            <li>📊 Test Data File - Simulation scenarios</li>
-        </ul>
         
         <h2>🔧 Configuration</h2>
-        <p>Configure the extension through VS Code settings:</p>
+        <p>The extension uses a centralized configuration file: <code>protocolfile-config.json</code></p>
+        <p>This replaces the old VSCode settings approach and provides much more flexibility.</p>
+        
+        <h2>🆕 What's New in v2.0</h2>
         <ul>
-            <li><code>protocolfile.serverDirectory</code> - Server application path</li>
-            <li><code>protocolfile.clientDirectory</code> - Client application path</li>
-            <li><code>protocolfile.serverExecutable</code> - Server executable name</li>
-            <li><code>protocolfile.clientExecutable</code> - Client executable name</li>
-            <li><code>protocolfile.startupDelay</code> - Delay between server/client startup</li>
+            <li>✨ Configuration-based testing</li>
+            <li>🗄️ Database integration</li>
+            <li>📊 Advanced reporting</li>
+            <li>🛡️ Enterprise error handling</li>
         </ul>
-        
-        <h2>⚡ Pro Tips</h2>
-        <ul>
-            <li>Click the status bar "ProtocolFile" text for quick actions</li>
-            <li>Use snippets: Type "protocol-" or "testdata-" for quick templates</li>
-            <li>Right-click on files for context menu actions</li>
-            <li>Problems panel shows detailed validation errors</li>
-            <li>Test control panel provides real-time test management</li>
-        </ul>
-        
-        <h2>🆕 What's New</h2>
-        <div class="feature">
-            <h3>✨ No External Dependencies</h3>
-            <p>The extension now includes built-in validation and test running capabilities. No need for external ConfigValidator.exe or complex batch scripts!</p>
-        </div>
-        
-        <div class="feature">
-            <h3>🎯 Laboratory-Focused</h3>
-            <p>Templates and snippets are now specifically designed for laboratory protocols with proper schema validation for both ProtocolFile and TestDataProtocolFile formats.</p>
-        </div>
     </body>
     </html>`;
 }
 
-export function deactivate() {
-    // Clean up any running processes
-    if (serverProcess) {
-        serverProcess.kill();
+async function onDocumentSaved(document: vscode.TextDocument) {
+    if (shouldValidateDocument(document)) {
+        const config = await loadConfiguration();
+        if (config?.validation?.validateOnSave) {
+            await validateProtocolFileInternal(document);
+        }
     }
-    if (clientProcess) {
-        clientProcess.kill();
+}
+
+async function onDocumentChanged(event: vscode.TextDocumentChangeEvent) {
+    if (shouldValidateDocument(event.document)) {
+        const config = await loadConfiguration();
+        if (config?.validation?.enableLiveValidation) {
+            // Debounce validation
+            setTimeout(async () => {
+                await validateProtocolFileInternal(event.document);
+            }, 1000);
+        }
     }
+}
+
+async function showWelcomeMessage(context: vscode.ExtensionContext) {
+    const hasShownWelcome = context.globalState.get('protocolfile.hasShownWelcome', false);
     
-    // Dispose diagnostics
-    diagnosticsCollection.dispose();
+    if (!hasShownWelcome) {
+        const action = await vscode.window.showInformationMessage(
+            '🎉 ProtocolFile Enhanced Extension activated! Ready to boost your testing workflow.',
+            'Show Help', 'Open Configuration', 'Don\'t Show Again'
+        );
+
+        if (action === 'Show Help') {
+            await showHelpPanel();
+        } else if (action === 'Open Configuration') {
+            await openConfigurationEditor();
+        } else if (action === 'Don\'t Show Again') {
+            await context.globalState.update('protocolfile.hasShownWelcome', true);
+        }
+    }
 }

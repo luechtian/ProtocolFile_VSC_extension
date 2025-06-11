@@ -1,86 +1,38 @@
 {
-  "name": "protocolfile-validator",
-  "displayName": "ProtocolFile Master Suite",
-  "description": "Complete ProtocolFile development environment with validation, IntelliSense, automation & analytics",
+  "name": "protocolfile-enhanced",
+  "displayName": "ProtocolFile Enhanced Testing Suite",
+  "description": "Advanced VSCode extension for laboratory testing teams with integrated test runner, database operations, and sophisticated configuration management",
   "version": "2.0.0",
-  "publisher": "your-company",
+  "publisher": "CLU",
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
-    "Linters",
-    "Snippets",
-    "Language Packs",
     "Testing",
-    "Data Science"
+    "Other",
+    "Snippets",
+    "Linters"
   ],
   "keywords": [
-    "protocol",
-    "json",
+    "laboratory",
     "testing",
+    "protocol",
+    "medical",
+    "automation",
     "validation",
-    "automation"
+    "json schema",
+    "database"
   ],
   "main": "./out/extension.js",
   "activationEvents": [
     "onLanguage:json",
     "workspaceContains:**/ProtocolFile*.json",
-    "onCommand:protocolfile.exploreWorkspace"
+    "workspaceContains:**/TestDataProtocolFile*.json",
+    "workspaceContains:**/*.protocol.json",
+    "workspaceContains:protocolfile-config.json"
   ],
   "contributes": {
-    "languages": [
-      {
-        "id": "protocolfile",
-        "aliases": [
-          "ProtocolFile",
-          "protocol"
-        ],
-        "extensions": [
-          ".protocol.json"
-        ],
-        "configuration": "./language-configuration.json"
-      }
-    ],
-    "grammars": [
-      {
-        "language": "protocolfile",
-        "scopeName": "source.json.protocol",
-        "path": "./syntaxes/protocolfile.tmGrammar.json"
-      }
-    ],
-    "jsonValidation": [
-      {
-        "fileMatch": [
-          "**/ProtocolFile*.json",
-          "**/*.protocol.json"
-        ],
-        "url": "./schemas/ProtocolFile.schema.json"
-      },
-      {
-        "fileMatch": [
-          "**/TestDataProtocolFile*.json",
-          "**/*testDataProtocolFile*.json"
-        ],
-        "url": "./schemas/testDataProtocolFile.schema.json"
-      }
-    ],
-    "snippets": [
-      {
-        "language": "json",
-        "path": "./snippets/protocolfile-snippets.json"
-      },
-      {
-        "language": "json",
-        "path": "./snippets/testdata-snippets.json"
-      }
-    ],
     "commands": [
-      {
-        "command": "protocolfile.validate",
-        "title": "Validate ProtocolFile",
-        "category": "ProtocolFile",
-        "icon": "$(check)"
-      },
       {
         "command": "protocolfile.generateTemplate",
         "title": "Generate Template",
@@ -88,68 +40,58 @@
         "icon": "$(file-add)"
       },
       {
-        "command": "protocolfile.runTest",
-        "title": "Run Test",
+        "command": "protocolfile.validateProtocolFile",
+        "title": "Validate Current File",
+        "category": "ProtocolFile",
+        "icon": "$(check)"
+      },
+      {
+        "command": "protocolfile.runIntegratedTest",
+        "title": "Run Enhanced Integrated Test",
         "category": "ProtocolFile",
         "icon": "$(play)"
       },
       {
-        "command": "protocolfile.compareFiles",
-        "title": "Compare Files",
+        "command": "protocolfile.openConfigurationEditor",
+        "title": "Open Configuration Editor",
         "category": "ProtocolFile",
-        "icon": "$(diff)"
+        "icon": "$(settings-gear)"
       },
       {
-        "command": "protocolfile.trackChanges",
-        "title": "Track Git Changes",
+        "command": "protocolfile.createConfigurationProfile",
+        "title": "Create Configuration Profile",
         "category": "ProtocolFile",
-        "icon": "$(git-commit)"
-      },
-      {
-        "command": "protocolfile.compareEnvironments",
-        "title": "Compare Environments",
-        "category": "ProtocolFile",
-        "icon": "$(diff-multiple)"
-      },
-      {
-        "command": "protocolfile.batchUpdate",
-        "title": "Batch Update Files",
-        "category": "ProtocolFile",
-        "icon": "$(sync)"
-      },
-      {
-        "command": "protocolfile.generateScenario",
-        "title": "Generate Test Scenario",
-        "category": "ProtocolFile",
-        "icon": "$(beaker)"
-      },
-      {
-        "command": "protocolfile.analyzePerformance",
-        "title": "Analyze Performance",
-        "category": "ProtocolFile",
-        "icon": "$(graph)"
-      },
-      {
-        "command": "protocolfile.export",
-        "title": "Export to Format",
-        "category": "ProtocolFile",
-        "icon": "$(export)"
-      },
-      {
-        "command": "protocolfile.refreshExplorer",
-        "title": "Refresh",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "protocolfile.toggleFeature",
-        "title": "Toggle Feature",
-        "icon": "$(symbol-boolean)"
+        "icon": "$(file-add)"
       },
       {
         "command": "protocolfile.configureTestPaths",
-        "title": "Configure Test Paths",
+        "title": "Configure Test Paths (Legacy)",
         "category": "ProtocolFile",
-        "icon": "$(gear)"
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "protocolfile.stopRunningTest",
+        "title": "Stop Running Test",
+        "category": "ProtocolFile",
+        "icon": "$(stop)"
+      },
+      {
+        "command": "protocolfile.showQuickActions",
+        "title": "Show Quick Actions",
+        "category": "ProtocolFile",
+        "icon": "$(list-selection)"
+      },
+      {
+        "command": "protocolfile.validateAllFiles",
+        "title": "Validate All ProtocolFiles",
+        "category": "ProtocolFile",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "protocolfile.compareProtocolFiles",
+        "title": "Compare ProtocolFiles",
+        "category": "ProtocolFile",
+        "icon": "$(diff)"
       },
       {
         "command": "protocolfile.generateTestData",
@@ -158,249 +100,256 @@
         "icon": "$(database)"
       },
       {
-        "command": "protocolfile.runIntegratedTest",
-        "title": "Run Integrated Test",
+        "command": "protocolfile.showTestLogs",
+        "title": "Show Test Execution Logs",
         "category": "ProtocolFile",
-        "icon": "$(rocket)"
+        "icon": "$(output)"
+      },
+      {
+        "command": "protocolfile.exportConfiguration",
+        "title": "Export Configuration",
+        "category": "ProtocolFile",
+        "icon": "$(export)"
+      },
+      {
+        "command": "protocolfile.importConfiguration",
+        "title": "Import Configuration",
+        "category": "ProtocolFile",
+        "icon": "$(import)"
       }
     ],
-    "views": {
-      "explorer": [
-        {
-          "id": "protocolFileExplorer",
-          "name": "ProtocolFiles",
-          "when": "workspaceHasProtocolFiles",
-          "contextualTitle": "ProtocolFile Explorer",
-          "icon": "$(rocket)"
-        }
-      ],
-      "protocolfile-sidebar": [
-        {
-          "type": "webview",
-          "id": "protocolFileHelper",
-          "name": "Quick Actions",
-          "contextualTitle": "ProtocolFile Helper",
-          "icon": "$(gear)"
-        }
-      ]
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "protocolfile-sidebar",
-          "title": "ProtocolFile",
-          "icon": "$(server-environment)"
-        }
-      ]
-    },
+    "keybindings": [
+      {
+        "command": "protocolfile.generateTemplate",
+        "key": "ctrl+shift+n",
+        "when": "resourceExtname == .json"
+      },
+      {
+        "command": "protocolfile.validateProtocolFile",
+        "key": "ctrl+shift+v",
+        "when": "resourceExtname == .json"
+      },
+      {
+        "command": "protocolfile.runIntegratedTest",
+        "key": "ctrl+shift+t",
+        "when": "resourceExtname == .json"
+      },
+      {
+        "command": "protocolfile.openConfigurationEditor",
+        "key": "ctrl+shift+c",
+        "when": "workspaceFolderCount > 0"
+      }
+    ],
     "menus": {
-      "explorer/context": [
+      "commandPalette": [
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/",
-          "command": "protocolfile.validate",
-          "group": "protocolfile@1"
+          "command": "protocolfile.generateTemplate",
+          "when": "workspaceFolderCount > 0"
         },
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/",
-          "command": "protocolfile.runTest",
-          "group": "protocolfile@2"
+          "command": "protocolfile.validateProtocolFile",
+          "when": "resourceExtname == .json"
         },
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/",
-          "command": "protocolfile.compareEnvironments",
-          "group": "protocolfile@3"
+          "command": "protocolfile.runIntegratedTest",
+          "when": "resourceExtname == .json"
         },
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/",
-          "command": "protocolfile.trackChanges",
-          "group": "protocolfile@4"
+          "command": "protocolfile.openConfigurationEditor",
+          "when": "workspaceFolderCount > 0"
         },
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/",
-          "command": "protocolfile.export",
-          "group": "protocolfile@5"
+          "command": "protocolfile.createConfigurationProfile",
+          "when": "workspaceFolderCount > 0"
         }
       ],
       "editor/context": [
         {
-          "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/",
-          "command": "protocolfile.analyzePerformance",
-          "group": "protocolfile@1"
+          "submenu": "protocolfile.submenu",
+          "when": "resourceExtname == .json && (resourceFilename =~ /.*ProtocolFile.*/ || resourceFilename =~ /.*TestDataProtocolFile.*/)",
+          "group": "1_protocolfile"
         }
       ],
-      "view/title": [
+      "protocolfile.submenu": [
         {
-          "command": "protocolfile.refreshExplorer",
-          "when": "view == protocolFileExplorer",
-          "group": "navigation"
+          "command": "protocolfile.validateProtocolFile",
+          "group": "1_validate"
         },
         {
-          "command": "protocolfile.batchUpdate",
-          "when": "view == protocolFileExplorer",
-          "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "protocolfile.toggleFeature",
-          "when": "view == protocolFileExplorer && viewItem == feature",
-          "group": "inline"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "protocolfile.batchUpdate",
-          "when": "workspaceHasProtocolFiles"
+          "command": "protocolfile.runIntegratedTest",
+          "group": "2_test"
         },
         {
-          "command": "protocolfile.generateScenario",
-          "when": "workspaceHasProtocolFiles"
+          "command": "protocolfile.compareProtocolFiles",
+          "group": "3_compare"
+        },
+        {
+          "command": "protocolfile.generateTestData",
+          "group": "4_generate"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "protocolfile.validateProtocolFile",
+          "when": "resourceExtname == .json && (resourceFilename =~ /.*ProtocolFile.*/ || resourceFilename =~ /.*TestDataProtocolFile.*/)",
+          "group": "1_protocolfile"
+        },
+        {
+          "command": "protocolfile.runIntegratedTest",
+          "when": "resourceExtname == .json && (resourceFilename =~ /.*ProtocolFile.*/ || resourceFilename =~ /.*TestDataProtocolFile.*/)",
+          "group": "1_protocolfile"
         }
       ]
     },
-    "keybindings": [
+    "submenus": [
       {
-        "command": "protocolfile.validate",
-        "key": "ctrl+shift+v",
-        "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/"
-      },
-      {
-        "command": "protocolfile.runTest",
-        "key": "ctrl+shift+t",
-        "when": "resourceExtname == .json && resourceFilename =~ /ProtocolFile/"
-      },
-      {
-        "command": "protocolfile.generateTemplate",
-        "key": "ctrl+shift+n",
-        "when": "!editorReadonly"
+        "id": "protocolfile.submenu",
+        "label": "ProtocolFile Actions"
       }
     ],
     "configuration": {
-      "title": "ProtocolFile",
+      "title": "ProtocolFile Enhanced",
       "properties": {
-        "protocolfile.validationOnSave": {
+        "protocolfile.configurationFile": {
+          "type": "string",
+          "default": "protocolfile-config.json",
+          "description": "Path to the configuration file (relative to workspace root)",
+          "scope": "workspace"
+        },
+        "protocolfile.autoLoadConfiguration": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically validate ProtocolFile on save"
+          "description": "Automatically load configuration on extension activation",
+          "scope": "workspace"
+        },
+        "protocolfile.validateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate protocol files when saved",
+          "scope": "workspace"
         },
         "protocolfile.enableLiveValidation": {
           "type": "boolean",
           "default": true,
-          "description": "Enable live validation while typing"
+          "description": "Enable real-time validation while typing",
+          "scope": "workspace"
         },
-        "protocolfile.schemaPath": {
-          "type": "string",
-          "default": "",
-          "description": "Custom path to ProtocolFile schema"
-        },
-        "protocolfile.testRunnerPath": {
-          "type": "string",
-          "default": "./run_test.bat",
-          "description": "Path to test runner script"
-        },
-        "protocolfile.enableAdvancedFeatures": {
+        "protocolfile.showStatusBarItem": {
           "type": "boolean",
           "default": true,
-          "description": "Enable advanced features like git integration and analytics"
+          "description": "Show ProtocolFile status bar item",
+          "scope": "workspace"
         },
-        "protocolfile.autoSyncEnvironments": {
+        "protocolfile.logLevel": {
+          "type": "string",
+          "enum": ["error", "warn", "info", "debug"],
+          "default": "info",
+          "description": "Logging level for extension output",
+          "scope": "workspace"
+        },
+        "protocolfile.autoBackupConfigurations": {
           "type": "boolean",
-          "default": false,
-          "description": "Automatically sync features across environments"
+          "default": true,
+          "description": "Automatically backup configuration files before modification",
+          "scope": "workspace"
         },
-        "protocolfile.defaultEnvironments": {
-          "type": "array",
-          "default": [
-            "production",
-            "staging",
-            "development"
-          ],
-          "description": "Default environments for new ProtocolFiles"
-        },
-        "protocolfile.exportFormats": {
-          "type": "array",
-          "default": [
-            "yaml",
-            "csv",
-            "markdown"
-          ],
-          "description": "Available export formats"
-        },
-        "protocolfile.serverDirectory": {
-          "type": "string",
-          "default": "../../software.comm",
-          "description": "Path to server application directory"
-        },
-        "protocolfile.clientDirectory": {
-          "type": "string",
-          "default": "../../software.gui",
-          "description": "Path to client application directory"
-        },
-        "protocolfile.serverExecutable": {
-          "type": "string",
-          "default": "software.comm.exe.bat",
-          "description": "Server executable filename"
-        },
-        "protocolfile.clientExecutable": {
-          "type": "string",
-          "default": "software.gui.exe.bat",
-          "description": "Client executable filename"
-        },
-        "protocolfile.serverConfigFile": {
-          "type": "string",
-          "default": "appsettings.json",
-          "description": "Server configuration file name"
-        },
-        "protocolfile.clientConfigFile": {
-          "type": "string",
-          "default": "app.config",
-          "description": "Client configuration file name"
-        },
-        "protocolfile.enableDatabaseOperations": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable database setup/cleanup operations"
-        },
-        "protocolfile.startupDelay": {
+        "protocolfile.testExecutionTimeout": {
           "type": "number",
-          "default": 5,
-          "description": "Delay in seconds between server and client startup"
+          "default": 300,
+          "minimum": 30,
+          "maximum": 3600,
+          "description": "Maximum test execution time in seconds",
+          "scope": "workspace"
+        },
+        "protocolfile.enableNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications for test completion and errors",
+          "scope": "workspace"
         }
       }
     },
-    "problemMatchers": [
+    "jsonValidation": [
       {
-        "name": "protocolfile-validator",
-        "owner": "protocolfile",
-        "fileLocation": [
-          "relative",
-          "${workspaceFolder}"
-        ],
-        "pattern": {
-          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
-          "file": 1,
-          "line": 2,
-          "column": 3,
-          "severity": 4,
-          "message": 5
-        }
+        "fileMatch": "**/protocolfile-config.json",
+        "url": "./schemas/protocolfile-config.schema.json"
+      },
+      {
+        "fileMatch": "**/*ProtocolFile*.json",
+        "url": "./schemas/ProtocolFile.schema.json"
+      },
+      {
+        "fileMatch": "**/*TestDataProtocolFile*.json",
+        "url": "./schemas/testDataProtocolFile.schema.json"
+      },
+      {
+        "fileMatch": "**/*.protocol.json",
+        "url": "./schemas/ProtocolFile.schema.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "json",
+        "path": "./snippets/protocolfile.json"
+      },
+      {
+        "language": "json",
+        "path": "./snippets/testdata.json"
+      },
+      {
+        "language": "json",
+        "path": "./snippets/configuration.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "protocolfile-config",
+        "aliases": ["ProtocolFile Configuration"],
+        "filenames": ["protocolfile-config.json"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "protocolfile-config",
+        "scopeName": "source.json.protocolfile-config",
+        "path": "./syntaxes/protocolfile-config.tmGrammar.json"
       }
     ],
     "taskDefinitions": [
       {
         "type": "protocolfile",
-        "required": [
-          "command"
-        ],
+        "required": ["action"],
         "properties": {
-          "command": {
+          "action": {
             "type": "string",
-            "description": "The ProtocolFile command to execute"
+            "enum": ["validate", "test", "validate-all"],
+            "description": "The action to perform"
           },
           "file": {
             "type": "string",
-            "description": "The ProtocolFile to process"
+            "description": "Specific file to process (optional)"
+          },
+          "profile": {
+            "type": "string",
+            "description": "Configuration profile to use (optional)"
           }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "protocolfile",
+        "label": "ProtocolFile Validation",
+        "owner": "protocolfile",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(ERROR|WARNING):\\s+(.+)\\s+at\\s+(.+):(\\d+):(\\d+)$",
+          "severity": 1,
+          "message": 2,
+          "file": 3,
+          "line": 4,
+          "column": 5
         }
       }
     ]
@@ -409,29 +358,50 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "deploy": "vsce publish"
   },
   "devDependencies": {
-    "@types/node": "18.x",
-    "@types/vscode": "^1.100.0",
-    "@vscode/test-electron": "^2.3.0",
-    "@vscode/vsce": "^2.19.0",
-    "typescript": "^5.0.0"
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4",
+    "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.15.0"
   },
   "dependencies": {
-    "ajv": "^8.12.0",
-    "js-yaml": "^4.1.0",
-    "jsonschema": "^1.4.1"
+    "ajv": "^8.12.0"
   },
+  "extensionDependencies": [],
+  "badges": [
+    {
+      "url": "https://img.shields.io/badge/Laboratory-Testing-blue",
+      "href": "https://github.com/your-org/protocolfile-extension",
+      "description": "Laboratory Testing Extension"
+    }
+  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-company/protocolfile-vscode"
+    "url": "https://github.com/your-org/protocolfile-extension"
   },
   "bugs": {
-    "url": "https://github.com/your-company/protocolfile-vscode/issues"
+    "url": "https://github.com/your-org/protocolfile-extension/issues"
   },
-  "homepage": "https://github.com/your-company/protocolfile-vscode#readme",
-  "license": "MIT"
+  "homepage": "https://github.com/your-org/protocolfile-extension#readme",
+  "license": "MIT",
+  "icon": "",
+  "galleryBanner": {
+    "color": "#0066cc",
+    "theme": "dark"
+  },
+  "preview": false,
+  "qna": "marketplace",
+  "extensionKind": [
+    "workspace"
+  ]
 }

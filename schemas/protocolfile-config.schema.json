@@ -1,214 +1,503 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.protocolfile.com/config/v2.0/protocolfile-config.schema.json",
   "title": "ProtocolFile Configuration Schema",
-  "description": "Configuration schema for ProtocolFile test runner",
+  "description": "JSON schema for ProtocolFile test automation configuration",
   "type": "object",
-  "required": ["version", "name", "paths", "configFiles", "serverSettings", "clientSettings", "features"],
+  "required": ["configVersion", "applicationPaths", "configurationFiles"],
+  "additionalProperties": false,
   "properties": {
-    "version": {
+    "$schema": {
       "type": "string",
-      "description": "Configuration file version",
-      "pattern": "^\\d+\\.\\d+$"
+      "description": "JSON Schema reference"
     },
-    "name": {
+    "configVersion": {
       "type": "string",
-      "description": "Configuration name/identifier"
+      "description": "Configuration file format version",
+      "pattern": "^\\d+\\.\\d+$",
+      "examples": ["2.0", "1.0"]
+    },
+    "projectName": {
+      "type": "string",
+      "description": "Human-readable name for this project configuration",
+      "maxLength": 100
     },
     "description": {
       "type": "string",
-      "description": "Optional description of this configuration"
+      "description": "Description of what this configuration is used for",
+      "maxLength": 500
     },
-    "paths": {
+    "applicationPaths": {
       "type": "object",
-      "description": "Application and executable paths",
+      "description": "Paths to server and client applications",
       "required": ["serverDirectory", "clientDirectory", "serverExecutable", "clientExecutable"],
+      "additionalProperties": false,
       "properties": {
         "serverDirectory": {
           "type": "string",
-          "description": "Path to server application directory"
+          "description": "Relative or absolute path to server application directory",
+          "examples": ["../../software.comm", "/opt/lab/server"]
         },
         "clientDirectory": {
           "type": "string",
-          "description": "Path to client application directory"
+          "description": "Relative or absolute path to client application directory",
+          "examples": ["../../software.gui", "/opt/lab/client"]
         },
         "serverExecutable": {
           "type": "string",
-          "description": "Primary server executable filename"
+          "description": "Primary server executable filename",
+          "examples": ["software.comm.exe.bat", "server.exe"]
         },
         "serverExecutableAlt": {
           "type": "string",
-          "description": "Alternative server executable filename"
+          "description": "Alternative server executable filename (fallback)",
+          "examples": ["software.comm.exe", "server_alt.exe"]
         },
         "clientExecutable": {
           "type": "string",
-          "description": "Primary client executable filename"
+          "description": "Primary client executable filename",
+          "examples": ["software.gui.exe.bat", "client.exe"]
         },
         "clientExecutableAlt": {
           "type": "string",
-          "description": "Alternative client executable filename"
+          "description": "Alternative client executable filename (fallback)",
+          "examples": ["software.gui.exe", "client_alt.exe"]
         }
       }
     },
-    "configFiles": {
+    "configurationFiles": {
       "type": "object",
       "description": "Configuration file settings",
       "required": ["serverConfigFile", "clientConfigFile"],
+      "additionalProperties": false,
       "properties": {
         "serverConfigFile": {
           "type": "string",
-          "description": "Server configuration file name (JSON format)"
+          "description": "Server configuration filename",
+          "examples": ["appsettings.json", "server.config"]
         },
         "clientConfigFile": {
           "type": "string",
-          "description": "Client configuration file name (XML format)"
+          "description": "Client configuration filename",
+          "examples": ["app.config", "client.xml"]
         },
         "backupSuffix": {
           "type": "string",
-          "description": "Suffix for backup files",
-          "default": ".backup"
+          "description": "Suffix added to backup files",
+          "default": ".backup",
+          "examples": [".backup", ".bak", ".orig"]
         }
       }
     },
-    "serverSettings": {
+    "serverConfiguration": {
       "type": "object",
-      "description": "Server configuration settings",
-      "required": ["simulationProtocolPrefix"],
+      "description": "Server configuration format and values",
+      "additionalProperties": false,
       "properties": {
+        "format": {
+          "type": "string",
+          "description": "Configuration file format",
+          "enum": ["json", "xml", "ini"],
+          "default": "json"
+        },
+        "simulationProtocolKey": {
+          "type": "string",
+          "description": "Key name for simulation protocol setting",
+          "default": "SimulationProtocol"
+        },
         "simulationProtocolPrefix": {
           "type": "string",
-          "description": "Prefix for simulation protocol command line argument"
+          "description": "Prefix to add before protocol file path",
+          "default": "--SimulationMode true"
         },
         "additionalSettings": {
           "type": "object",
-          "description": "Additional server configuration properties to set",
-          "additionalProperties": true
+          "description": "Additional server configuration settings",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean"]
+          }
         }
       }
     },
-    "clientSettings": {
+    "clientConfiguration": {
       "type": "object",
-      "description": "Client configuration settings",
-      "required": ["simulationModeKey", "simulationModeValue"],
+      "description": "Client configuration format and values",
+      "additionalProperties": false,
       "properties": {
+        "format": {
+          "type": "string",
+          "description": "Configuration file format",
+          "enum": ["json", "xml", "ini"],
+          "default": "xml"
+        },
         "simulationModeKey": {
           "type": "string",
-          "description": "Key name for simulation mode in client config"
+          "description": "Key name for simulation mode setting",
+          "default": "SimulationMode"
         },
         "simulationModeValue": {
           "type": "string",
-          "description": "Value to set for simulation mode"
+          "description": "Value to set for simulation mode",
+          "default": "true"
         },
         "additionalSettings": {
           "type": "object",
-          "description": "Additional client configuration properties to set",
+          "description": "Additional client configuration settings",
           "additionalProperties": {
             "type": "string"
           }
         }
       }
     },
-    "features": {
+    "databaseOperations": {
       "type": "object",
-      "description": "Feature flags and behavior settings",
+      "description": "Database setup and cleanup operations",
+      "additionalProperties": false,
       "properties": {
-        "enableDatabaseOperations": {
+        "enabled": {
           "type": "boolean",
-          "description": "Enable database setup/cleanup operations",
+          "description": "Enable database operations",
           "default": false
         },
-        "startupDelay": {
-          "type": "number",
-          "description": "Delay in seconds between server and client startup",
-          "minimum": 0,
-          "maximum": 60,
-          "default": 5
+        "connectionString": {
+          "type": "string",
+          "description": "Database connection string",
+          "examples": ["Server=localhost;Database=TestDB;Trusted_Connection=true;"]
         },
-        "waitForServerStartup": {
-          "type": "boolean",
-          "description": "Wait for server to fully start before launching client",
-          "default": true
-        },
-        "autoRestoreOnError": {
-          "type": "boolean",
-          "description": "Automatically restore configurations on error",
-          "default": true
-        },
-        "showDetailedProgress": {
-          "type": "boolean",
-          "description": "Show detailed progress information",
-          "default": true
-        }
-      }
-    },
-    "database": {
-      "type": "object",
-      "description": "Database operation settings",
-      "properties": {
         "setupScripts": {
           "type": "array",
-          "description": "SQL scripts to run during database setup",
+          "description": "SQL scripts to run before testing",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/sqlScript"
           }
         },
         "cleanupScripts": {
           "type": "array",
-          "description": "SQL scripts to run during database cleanup",
+          "description": "SQL scripts to run after testing",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/sqlScript"
           }
-        },
-        "connectionString": {
-          "type": "string",
-          "description": "Database connection string"
-        },
-        "timeout": {
-          "type": "number",
-          "description": "Database operation timeout in seconds",
-          "minimum": 1,
-          "maximum": 300,
-          "default": 30
         }
       }
     },
-    "advanced": {
+    "testExecution": {
       "type": "object",
-      "description": "Advanced configuration options",
+      "description": "Test execution parameters",
+      "additionalProperties": false,
       "properties": {
-        "customPreTestCommands": {
-          "type": "array",
-          "description": "Custom commands to run before test execution",
-          "items": {
-            "type": "string"
-          }
+        "startupDelay": {
+          "type": "integer",
+          "description": "Delay in seconds between starting server and client",
+          "minimum": 0,
+          "maximum": 300,
+          "default": 5
         },
-        "customPostTestCommands": {
-          "type": "array",
-          "description": "Custom commands to run after test execution",
-          "items": {
-            "type": "string"
-          }
+        "shutdownTimeout": {
+          "type": "integer",
+          "description": "Timeout in seconds for graceful shutdown",
+          "minimum": 5,
+          "maximum": 300,
+          "default": 30
         },
-        "environmentVariables": {
-          "type": "object",
-          "description": "Environment variables to set for test processes",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "processTimeout": {
-          "type": "number",
-          "description": "Maximum time in seconds to wait for processes",
-          "minimum": 30,
-          "maximum": 3600,
-          "default": 300
-        },
-        "maxRetries": {
-          "type": "number",
-          "description": "Maximum number of retry attempts on failure",
+        "retryAttempts": {
+          "type": "integer",
+          "description": "Number of retry attempts on failure",
           "minimum": 0,
           "maximum": 10,
           "default": 3
+        },
+        "preTestCommands": {
+          "type": "array",
+          "description": "Commands to run before starting test",
+          "items": {
+            "$ref": "#/definitions/command"
+          }
+        },
+        "postTestCommands": {
+          "type": "array",
+          "description": "Commands to run after test completion",
+          "items": {
+            "$ref": "#/definitions/command"
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation settings",
+      "additionalProperties": false,
+      "properties": {
+        "enableSchemaValidation": {
+          "type": "boolean",
+          "description": "Enable JSON schema validation",
+          "default": true
+        },
+        "enableBusinessRuleValidation": {
+          "type": "boolean",
+          "description": "Enable business rule validation",
+          "default": true
+        },
+        "validateOnSave": {
+          "type": "boolean",
+          "description": "Validate files when saved",
+          "default": true
+        },
+        "enableLiveValidation": {
+          "type": "boolean",
+          "description": "Enable real-time validation while typing",
+          "default": true
+        },
+        "schemaFiles": {
+          "type": "object",
+          "description": "Paths to schema files",
+          "additionalProperties": false,
+          "properties": {
+            "protocolFileSchema": {
+              "type": "string",
+              "description": "Path to ProtocolFile schema",
+              "default": "./schemas/ProtocolFile.schema.json"
+            },
+            "testDataProtocolFileSchema": {
+              "type": "string",
+              "description": "Path to TestDataProtocolFile schema",
+              "default": "./schemas/testDataProtocolFile.schema.json"
+            }
+          }
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "description": "Logging configuration",
+      "additionalProperties": false,
+      "properties": {
+        "enableTestLogging": {
+          "type": "boolean",
+          "description": "Enable test execution logging",
+          "default": true
+        },
+        "logDirectory": {
+          "type": "string",
+          "description": "Directory for log files",
+          "default": "./logs"
+        },
+        "logLevel": {
+          "type": "string",
+          "description": "Logging level",
+          "enum": ["error", "warn", "info", "debug"],
+          "default": "info"
+        },
+        "retainLogDays": {
+          "type": "integer",
+          "description": "Number of days to retain log files",
+          "minimum": 1,
+          "maximum": 365,
+          "default": 30
+        },
+        "logFormat": {
+          "type": "string",
+          "description": "Log entry format",
+          "enum": ["json", "text", "timestamp"],
+          "default": "timestamp"
+        }
+      }
+    },
+    "errorHandling": {
+      "type": "object",
+      "description": "Error handling configuration",
+      "additionalProperties": false,
+      "properties": {
+        "autoRestoreOnFailure": {
+          "type": "boolean",
+          "description": "Automatically restore configurations on failure",
+          "default": true
+        },
+        "continueOnNonCriticalErrors": {
+          "type": "boolean",
+          "description": "Continue test execution on non-critical errors",
+          "default": false
+        },
+        "emailNotifications": {
+          "type": "object",
+          "description": "Email notification settings",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable email notifications",
+              "default": false
+            },
+            "recipients": {
+              "type": "array",
+              "description": "Email recipients",
+              "items": {
+                "type": "string",
+                "format": "email"
+              }
+            },
+            "onFailure": {
+              "type": "boolean",
+              "description": "Send notification on test failure",
+              "default": true
+            },
+            "onSuccess": {
+              "type": "boolean",
+              "description": "Send notification on test success",
+              "default": false
+            }
+          }
+        }
+      }
+    },
+    "reporting": {
+      "type": "object",
+      "description": "Test reporting configuration",
+      "additionalProperties": false,
+      "properties": {
+        "generateReports": {
+          "type": "boolean",
+          "description": "Generate test reports",
+          "default": true
+        },
+        "reportDirectory": {
+          "type": "string",
+          "description": "Directory for test reports",
+          "default": "./reports"
+        },
+        "reportFormats": {
+          "type": "array",
+          "description": "Report output formats",
+          "items": {
+            "type": "string",
+            "enum": ["json", "xml", "html", "csv"]
+          },
+          "uniqueItems": true
+        },
+        "includeTimestamp": {
+          "type": "boolean",
+          "description": "Include timestamp in report filenames",
+          "default": true
+        },
+        "includeSystemInfo": {
+          "type": "boolean",
+          "description": "Include system information in reports",
+          "default": true
+        }
+      }
+    },
+    "customCommands": {
+      "type": "object",
+      "description": "Custom command hooks",
+      "additionalProperties": false,
+      "properties": {
+        "beforeTest": {
+          "type": "array",
+          "description": "Commands to run before test starts",
+          "items": {
+            "$ref": "#/definitions/command"
+          }
+        },
+        "afterTest": {
+          "type": "array",
+          "description": "Commands to run after test completes",
+          "items": {
+            "$ref": "#/definitions/command"
+          }
+        },
+        "onError": {
+          "type": "array",
+          "description": "Commands to run on error",
+          "items": {
+            "$ref": "#/definitions/command"
+          }
+        },
+        "onSuccess": {
+          "type": "array",
+          "description": "Commands to run on success",
+          "items": {
+            "$ref": "#/definitions/command"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "sqlScript": {
+      "type": "object",
+      "description": "SQL script definition",
+      "required": ["name", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for the script",
+          "maxLength": 100
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the SQL script file"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what the script does",
+          "maxLength": 500
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this script is required for test execution",
+          "default": true
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Script execution timeout in seconds",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 300
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "description": "Command definition",
+      "required": ["name", "command"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for the command",
+          "maxLength": 100
+        },
+        "command": {
+          "type": "string",
+          "description": "Command to execute"
+        },
+        "args": {
+          "type": "array",
+          "description": "Command arguments",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what the command does",
+          "maxLength": 500
+        },
+        "workingDirectory": {
+          "type": "string",
+          "description": "Working directory for command execution"
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Command execution timeout in seconds",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 30
+        },
+        "continueOnError": {
+          "type": "boolean",
+          "description": "Continue execution if this command fails",
+          "default": false
         }
       }
     }

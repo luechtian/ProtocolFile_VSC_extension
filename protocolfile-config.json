@@ -1,8 +1,10 @@
 {
-  "version": "1.0",
-  "name": "Default Configuration",
-  "description": "Default configuration for ProtocolFile test runner",
-  "paths": {
+  "$schema": "./schemas/protocolfile-config.schema.json",
+  "configVersion": "2.0",
+  "projectName": "Laboratory Protocol Testing",
+  "description": "Configuration for ProtocolFile test automation",
+  
+  "applicationPaths": {
     "serverDirectory": "../../software.comm",
     "clientDirectory": "../../software.gui",
     "serverExecutable": "software.comm.exe.bat",
@@ -10,50 +12,124 @@
     "clientExecutable": "software.gui.exe.bat",
     "clientExecutableAlt": "software.gui.exe"
   },
-  "configFiles": {
+  
+  "configurationFiles": {
     "serverConfigFile": "appsettings.json",
     "clientConfigFile": "app.config",
     "backupSuffix": ".backup"
   },
-  "serverSettings": {
+  
+  "serverConfiguration": {
+    "format": "json",
+    "simulationProtocolKey": "SimulationProtocol",
     "simulationProtocolPrefix": "--SimulationMode true",
     "additionalSettings": {
       "LogLevel": "Debug",
-      "EnableDetailedLogging": true
+      "DatabaseConnectionTimeout": 30
     }
   },
-  "clientSettings": {
+  
+  "clientConfiguration": {
+    "format": "xml",
     "simulationModeKey": "SimulationMode",
     "simulationModeValue": "true",
     "additionalSettings": {
-      "Timeout": "30000",
-      "RetryCount": "3",
-      "EnableDebugMode": "true"
+      "TimeoutSeconds": "300",
+      "RetryAttempts": "3"
     }
   },
-  "features": {
-    "enableDatabaseOperations": false,
-    "startupDelay": 5,
-    "waitForServerStartup": true,
-    "autoRestoreOnError": true,
-    "showDetailedProgress": true
-  },
-  "database": {
+  
+  "databaseOperations": {
+    "enabled": false,
+    "connectionString": "",
     "setupScripts": [
-      "scripts/setup_test_db.sql",
-      "scripts/insert_test_data.sql"
+      {
+        "name": "Initialize Test Database",
+        "path": "./sql/setup_test_db.sql",
+        "description": "Creates test database and tables",
+        "required": true
+      },
+      {
+        "name": "Clear Previous Data",
+        "path": "./sql/clear_data.sql",
+        "description": "Clears data from previous test runs",
+        "required": false
+      }
     ],
     "cleanupScripts": [
-      "scripts/cleanup_test_db.sql"
-    ],
-    "connectionString": "",
-    "timeout": 30
+      {
+        "name": "Cleanup Test Data",
+        "path": "./sql/cleanup_test_data.sql",
+        "description": "Removes test data after completion",
+        "required": true
+      }
+    ]
   },
-  "advanced": {
-    "customPreTestCommands": [],
-    "customPostTestCommands": [],
-    "environmentVariables": {},
-    "processTimeout": 300,
-    "maxRetries": 3
+  
+  "testExecution": {
+    "startupDelay": 5,
+    "shutdownTimeout": 30,
+    "retryAttempts": 3,
+    "preTestCommands": [
+      {
+        "name": "Verify Prerequisites",
+        "command": "echo",
+        "args": ["Checking prerequisites..."],
+        "description": "Verify all prerequisites are met"
+      }
+    ],
+    "postTestCommands": [
+      {
+        "name": "Generate Report",
+        "command": "echo",
+        "args": ["Test completed successfully"],
+        "description": "Generate test completion report"
+      }
+    ]
+  },
+  
+  "validation": {
+    "enableSchemaValidation": true,
+    "enableBusinessRuleValidation": true,
+    "validateOnSave": true,
+    "enableLiveValidation": true,
+    "schemaFiles": {
+      "protocolFileSchema": "./schemas/ProtocolFile.schema.json",
+      "testDataProtocolFileSchema": "./schemas/testDataProtocolFile.schema.json"
+    }
+  },
+  
+  "logging": {
+    "enableTestLogging": true,
+    "logDirectory": "./logs",
+    "logLevel": "info",
+    "retainLogDays": 30,
+    "logFormat": "timestamp"
+  },
+  
+  "errorHandling": {
+    "autoRestoreOnFailure": true,
+    "continueOnNonCriticalErrors": false,
+    "emailNotifications": {
+      "enabled": false,
+      "recipients": [],
+      "onFailure": true,
+      "onSuccess": false
+    }
+  },
+  
+  "reporting": {
+    "generateReports": true,
+    "reportDirectory": "./reports",
+    "reportFormats": ["json", "html"],
+    "includeTimestamp": true,
+    "includeSystemInfo": true
+  },
+  
+  "customCommands": {
+    "beforeTest": [],
+    "afterTest": [],
+    "onError": [],
+    "onSuccess": []
   }
 }

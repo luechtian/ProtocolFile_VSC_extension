@@ -1,0 +1,128 @@
+// ============================================================================
+// .vscode/tasks.json - VSCode Task Definitions
+// ============================================================================
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "ProtocolFile: Validate Current File",
+            "type": "protocolfile",
+            "action": "validate",
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": "$protocolfile"
+        },
+        {
+            "label": "ProtocolFile: Validate All Files",
+            "type": "protocolfile", 
+            "action": "validate-all",
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": "$protocolfile"
+        },
+        {
+            "label": "ProtocolFile: Run Test with Default Profile",
+            "type": "protocolfile",
+            "action": "test",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "ProtocolFile: Run Test with Development Profile",
+            "type": "protocolfile",
+            "action": "test", 
+            "profile": "development",
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "ProtocolFile: Run Test with Production Profile",
+            "type": "protocolfile",
+            "action": "test",
+            "profile": "production", 
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "Database: Setup Test Database",
+            "type": "shell",
+            "command": "sqlcmd",
+            "args": [
+                "-S", "localhost",
+                "-E",
+                "-i", "sql/setup_test_db.sql"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Database: Clear Test Data", 
+            "type": "shell",
+            "command": "sqlcmd",
+            "args": [
+                "-S", "localhost", 
+                "-E",
+                "-i", "sql/clear_data.sql"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "Generate Test Report",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-Command",
+                "Get-ChildItem ./logs/*.log -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | Out-GridView -Title 'Recent Test Logs'"
+            ],
+            "group": "build",
+            "windows": {
+                "command": "powershell"
+            },
+            "linux": {
+                "command": "bash",
+                "args": ["-c", "ls -la ./logs/*.log | head -10"]
+            }
+        }
+    ]
+}
