@@ -1,0 +1,739 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/ProtocolFileTestData",
+    "definitions": {
+        "ProtocolFileTestData": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "$schema": {
+                  "type": "string"
+                },
+                "SimulatedData": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SimulatedDatum"
+                    }
+                }
+            },
+            "required": [
+                "SimulatedData"
+            ],
+            "title": "ProtocolFileTestData"
+        },
+        "SimulatedDatum": {
+            "type": "object",
+            "defaultSnippets": [
+                {
+                    "label": "Counterweight - BRE",
+                    "description": "Add Barcode Read Error to Counterweight loading step",
+                    "body":
+                        {
+                            "TrackNumber": "Counterweight",
+                            "Counter": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "92056",
+                                    "LabwareId": "881",
+                                    "StackPosition": "0",
+                                    "MainErrorCode": 5
+                                },
+                                {
+                                    "Barcode": "92057",
+                                    "LabwareId": "882",
+                                    "StackPosition": "1"
+                                },
+                                {
+                                    "Barcode": "CwWater_1",
+                                    "LabwareId": "999",
+                                    "PositionId": "0"
+                                },
+                                {
+                                    "Barcode": "CwWater_2",
+                                    "LabwareId": "999",
+                                    "PositionId": "1"
+                                },
+                                {
+                                    "Barcode": "CwWater_3",
+                                    "LabwareId": "999",
+                                    "PositionId": "2"
+                                },
+                                {
+                                    "Barcode": "CwWater_4",
+                                    "LabwareId": "999",
+                                    "PositionId": "3"
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "Counterweight - UIE",
+                    "description": "Add Unknown Item Error to Counterweight loading step",
+                    "body":
+                        {
+                            "TrackNumber": "Counterweight",
+                            "Counter": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "12356",
+                                    "LabwareId": "881",
+                                    "StackPosition": "0"
+                                },
+                                {
+                                    "Barcode": "92057",
+                                    "LabwareId": "882",
+                                    "StackPosition": "1"
+                                },
+                                {
+                                    "Barcode": "CwWater_1",
+                                    "LabwareId": "999",
+                                    "PositionId": "0"
+                                },
+                                {
+                                    "Barcode": "CwWater_2",
+                                    "LabwareId": "999",
+                                    "PositionId": "1"
+                                },
+                                {
+                                    "Barcode": "CwWater_3",
+                                    "LabwareId": "999",
+                                    "PositionId": "2"
+                                },
+                                {
+                                    "Barcode": "CwWater_4",
+                                    "LabwareId": "999",
+                                    "PositionId": "3"
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "Counterweight - NECE",
+                    "description": "Add Missing Item Error to Counterweight loading step",
+                    "body":
+                        {
+                            "TrackNumber": "Counterweight",
+                            "Counter": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "92056",
+                                    "LabwareId": "881",
+                                    "StackPosition": "0"
+                                },
+                                {
+                                    "Barcode": "CwWater_1",
+                                    "LabwareId": "999",
+                                    "PositionId": "0"
+                                },
+                                {
+                                    "Barcode": "CwWater_2",
+                                    "LabwareId": "999",
+                                    "PositionId": "1"
+                                },
+                                {
+                                    "Barcode": "CwWater_3",
+                                    "LabwareId": "999",
+                                    "PositionId": "2"
+                                },
+                                {
+                                    "Barcode": "CwWater_4",
+                                    "LabwareId": "999",
+                                    "PositionId": "3"
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "Counterweight - WOE",
+                    "description": "Add Wrong Item Order Error to Counterweight loading step",
+                    "body":
+                        {
+                            "TrackNumber": "Counterweight",
+                            "Counter": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "92057",
+                                    "LabwareId": "882",
+                                    "StackPosition": 0
+                                },
+                                {
+                                    "Barcode": "92056",
+                                    "LabwareId": "881",
+                                    "StackPosition": 1
+                                },
+                                {
+                                    "Barcode": "CwWater_1",
+                                    "LabwareId": "999",
+                                    "PositionId": "0"
+                                },
+                                {
+                                    "Barcode": "CwWater_2",
+                                    "LabwareId": "999",
+                                    "PositionId": "1"
+                                },
+                                {
+                                    "Barcode": "CwWater_3",
+                                    "LabwareId": "999",
+                                    "PositionId": "2"
+                                },
+                                {
+                                    "Barcode": "CwWater_4",
+                                    "LabwareId": "999",
+                                    "PositionId": "3"
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "Counterweight - Happy",
+                    "description": "Add Happy Path to Counterweight loading step",
+                    "body":
+                        {
+                            "TrackNumber": "Counterweight",
+                            "Counter": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "92056",
+                                    "LabwareId": "881",
+                                    "StackPosition": "0"
+                                },
+                                {
+                                    "Barcode": "92057",
+                                    "LabwareId": "882",
+                                    "StackPosition": "1"
+                                },
+                                {
+                                    "Barcode": "CwWater_1",
+                                    "LabwareId": "999",
+                                    "PositionId": "0",
+                                    "AvailableVolume":100
+                                },
+                                {
+                                    "Barcode": "CwWater_2",
+                                    "LabwareId": "999",
+                                    "PositionId": "1",
+                                    "AvailableVolume":100
+                                },
+                                {
+                                    "Barcode": "CwWater_3",
+                                    "LabwareId": "999",
+                                    "PositionId": "2",
+                                    "AvailableVolume":100
+                                },
+                                {
+                                    "Barcode": "CwWater_4",
+                                    "LabwareId": "999",
+                                    "PositionId": "3",
+                                    "AvailableVolume":100
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "PatientSampleCarrier - NCE",
+                    "description": "Add No Carrier Error to PatientSampleCarrier loading step (MainErrorCode: 9)",
+                    "body":
+                        {
+                            "TrackNumber": "3",
+                            "Counter": 0,
+                            "MainErrorCode": 9,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "Track3_Sample01",
+                                    "LabwareId": "301",
+                                    "PositionId": "1",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample02",
+                                    "LabwareId": "302",
+                                    "PositionId": "2",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample03",
+                                    "LabwareId": "303",
+                                    "PositionId": "3",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample04",
+                                    "LabwareId": "304",
+                                    "PositionId": "4",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample*05",
+                                    "LabwareId": "305",
+                                    "PositionId": "5",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample06",
+                                    "LabwareId": "306",
+                                    "PositionId": "6",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample07",
+                                    "LabwareId": "307",
+                                    "PositionId": "7",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample08",
+                                    "LabwareId": "308",
+                                    "PositionId": "8",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample09",
+                                    "LabwareId": "309",
+                                    "PositionId": "9",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample10",
+                                    "LabwareId": "310",
+                                    "PositionId": "10",
+                                    "MainErrorCode": 0
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "PatientSampleCarrier - WCE",
+                    "description": "Add Wrong Carrier Error to PatientSampleCarrier loading step (MainErrorCode: 100)",
+                    "body":
+                        {
+                            "TrackNumber": "3",
+                            "Counter": 0,
+                            "MainErrorCode": 100,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "Track3_Sample01",
+                                    "LabwareId": "301",
+                                    "PositionId": "1",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample02",
+                                    "LabwareId": "302",
+                                    "PositionId": "2",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample03",
+                                    "LabwareId": "303",
+                                    "PositionId": "3",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample04",
+                                    "LabwareId": "304",
+                                    "PositionId": "4",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample*05",
+                                    "LabwareId": "305",
+                                    "PositionId": "5",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample06",
+                                    "LabwareId": "306",
+                                    "PositionId": "6",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample07",
+                                    "LabwareId": "307",
+                                    "PositionId": "7",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample08",
+                                    "LabwareId": "308",
+                                    "PositionId": "8",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample09",
+                                    "LabwareId": "309",
+                                    "PositionId": "9",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample10",
+                                    "LabwareId": "310",
+                                    "PositionId": "10",
+                                    "MainErrorCode": 0
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "PatientSampleCarrier - BRE",
+                    "description": "Add Barcode Read Error to PatientSampleCarrier loading step",
+                    "body":
+                        {
+                            "TrackNumber": "3",
+                            "Counter": 0,
+                            "MainErrorCode": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "Track3_Sample01",
+                                    "LabwareId": "301",
+                                    "PositionId": "1",
+                                    "MainErrorCode": 5
+                                },
+                                {
+                                    "Barcode": "Track3_Sample02",
+                                    "LabwareId": "302",
+                                    "PositionId": "2",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample03",
+                                    "LabwareId": "303",
+                                    "PositionId": "3",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample04",
+                                    "LabwareId": "304",
+                                    "PositionId": "4",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample05",
+                                    "LabwareId": "305",
+                                    "PositionId": "5",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample06",
+                                    "LabwareId": "306",
+                                    "PositionId": "6",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample10",
+                                    "LabwareId": "307",
+                                    "PositionId": "7",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample08",
+                                    "LabwareId": "308",
+                                    "PositionId": "8",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample09",
+                                    "LabwareId": "309",
+                                    "PositionId": "9",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample10",
+                                    "LabwareId": "310",
+                                    "PositionId": "10",
+                                    "MainErrorCode": 0
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "PatientSampleCarrier - REE",
+                    "description": "Add RegEx Error to PatientSampleCarrier loading step. Add following RegEx to your Carrier config: [A-Za-z1-100_]",
+                    "body":
+                        {
+                            "TrackNumber": "3",
+                            "Counter": 0,
+                            "MainErrorCode": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "Track3_Sample01",
+                                    "LabwareId": "301",
+                                    "PositionId": "1",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample02",
+                                    "LabwareId": "302",
+                                    "PositionId": "2",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample03",
+                                    "LabwareId": "303",
+                                    "PositionId": "3",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample04",
+                                    "LabwareId": "304",
+                                    "PositionId": "4",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample*05",
+                                    "LabwareId": "305",
+                                    "PositionId": "5",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample06",
+                                    "LabwareId": "306",
+                                    "PositionId": "6",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample07",
+                                    "LabwareId": "307",
+                                    "PositionId": "7",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample08",
+                                    "LabwareId": "308",
+                                    "PositionId": "8",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample09",
+                                    "LabwareId": "309",
+                                    "PositionId": "9",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample10",
+                                    "LabwareId": "310",
+                                    "PositionId": "10",
+                                    "MainErrorCode": 0
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "PatientSampleCarrier - Happy",
+                    "description": "Add Happy Path to PatientSampleCarrier loading step",
+                    "body":
+                        {
+                            "TrackNumber": "3",
+                            "Counter": 0,
+                            "MainErrorCode": 0,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "Track3_Sample01",
+                                    "LabwareId": "301",
+                                    "PositionId": "1",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample02",
+                                    "LabwareId": "302",
+                                    "PositionId": "2",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample03",
+                                    "LabwareId": "303",
+                                    "PositionId": "3",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample04",
+                                    "LabwareId": "304",
+                                    "PositionId": "4",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample05",
+                                    "LabwareId": "305",
+                                    "PositionId": "5",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample06",
+                                    "LabwareId": "306",
+                                    "PositionId": "6",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample07",
+                                    "LabwareId": "307",
+                                    "PositionId": "7",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample08",
+                                    "LabwareId": "308",
+                                    "PositionId": "8",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample09",
+                                    "LabwareId": "309",
+                                    "PositionId": "9",
+                                    "MainErrorCode": 0
+                                },
+                                {
+                                    "Barcode": "Track3_Sample10",
+                                    "LabwareId": "310",
+                                    "PositionId": "10",
+                                    "MainErrorCode": 0
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "MfxCarrier - NCE",
+                    "description": "Add No Carrier Error to MfxCarrier loading step (MainErrorCode: 9)",
+                    "body":
+                        {
+                            "TrackNumber": "18",
+                            "Counter": 0,
+                            "MainErrorCode":9,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "Track18_Barcode01",
+                                    "LabwareId": "1801",
+                                    "SiteId": "1"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode02",
+                                    "LabwareId": "1802",
+                                    "SiteId": "2"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode03",
+                                    "LabwareId": "1803",
+                                    "SiteId": "3"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode04",
+                                    "LabwareId": "1804",
+                                    "SiteId": "4"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode05",
+                                    "LabwareId": "1805",
+                                    "SiteId": "5"
+                                }
+                            ]
+                        }
+                },
+                {
+                    "label": "MfxCarrier - WCE",
+                    "description": "Add Wrong Carrier Error to MfxCarrier loading step (MainErrorCode: 100)",
+                    "body":
+                        {
+                            "TrackNumber": "18",
+                            "Counter": 0,
+                            "MainErrorCode":100,
+                            "PlacedLabwareItems": [
+                                {
+                                    "Barcode": "Track18_Barcode01",
+                                    "LabwareId": "1801",
+                                    "SiteId": "1"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode02",
+                                    "LabwareId": "1802",
+                                    "SiteId": "2"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode03",
+                                    "LabwareId": "1803",
+                                    "SiteId": "3"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode04",
+                                    "LabwareId": "1804",
+                                    "SiteId": "4"
+                                },
+                                {
+                                    "Barcode": "Track18_Barcode05",
+                                    "LabwareId": "1805",
+                                    "SiteId": "5"
+                                }
+                            ]
+                        }
+                }
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "TrackNumber": {
+                    "type": "string"
+                },
+                "Counter": {
+                    "type": "integer"
+                },
+                "PlacedLabwareItems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PlacedLabwareItem"
+                    }
+                },
+                "MainErrorCode": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "Counter",
+                "PlacedLabwareItems",
+                "TrackNumber"
+            ],
+            "title": "SimulatedDatum"
+        },
+        "PlacedLabwareItem": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "Barcode": {
+                    "type": "string"
+                },
+                "LabwareId": {
+                    "type": "string"
+                },
+                "StackPosition": {
+                    "$ref": "#/definitions/StackPosition"
+                },
+                "MainErrorCode": {
+                    "type": "integer"
+                },
+                "PositionId": {
+                    "type": "string",
+                    "format": "integer"
+                },
+                "AvailableVolume": {
+                    "type": "integer"
+                },
+                "SiteId": {
+                    "type": "string",
+                    "format": "integer"
+                }
+            },
+            "required": [
+                "Barcode",
+                "LabwareId"
+            ],
+            "title": "PlacedLabwareItem"
+        },
+        "StackPosition": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "string",
+                    "format": "integer"
+                }
+            ],
+            "title": "StackPosition"
+        }
+    }
+}

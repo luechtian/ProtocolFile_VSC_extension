@@ -1,0 +1,216 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProtocolFile Configuration Schema",
+  "description": "Configuration schema for ProtocolFile test runner",
+  "type": "object",
+  "required": ["version", "name", "paths", "configFiles", "serverSettings", "clientSettings", "features"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration file version",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Configuration name/identifier"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description of this configuration"
+    },
+    "paths": {
+      "type": "object",
+      "description": "Application and executable paths",
+      "required": ["serverDirectory", "clientDirectory", "serverExecutable", "clientExecutable"],
+      "properties": {
+        "serverDirectory": {
+          "type": "string",
+          "description": "Path to server application directory"
+        },
+        "clientDirectory": {
+          "type": "string",
+          "description": "Path to client application directory"
+        },
+        "serverExecutable": {
+          "type": "string",
+          "description": "Primary server executable filename"
+        },
+        "serverExecutableAlt": {
+          "type": "string",
+          "description": "Alternative server executable filename"
+        },
+        "clientExecutable": {
+          "type": "string",
+          "description": "Primary client executable filename"
+        },
+        "clientExecutableAlt": {
+          "type": "string",
+          "description": "Alternative client executable filename"
+        }
+      }
+    },
+    "configFiles": {
+      "type": "object",
+      "description": "Configuration file settings",
+      "required": ["serverConfigFile", "clientConfigFile"],
+      "properties": {
+        "serverConfigFile": {
+          "type": "string",
+          "description": "Server configuration file name (JSON format)"
+        },
+        "clientConfigFile": {
+          "type": "string",
+          "description": "Client configuration file name (XML format)"
+        },
+        "backupSuffix": {
+          "type": "string",
+          "description": "Suffix for backup files",
+          "default": ".backup"
+        }
+      }
+    },
+    "serverSettings": {
+      "type": "object",
+      "description": "Server configuration settings",
+      "required": ["simulationProtocolPrefix"],
+      "properties": {
+        "simulationProtocolPrefix": {
+          "type": "string",
+          "description": "Prefix for simulation protocol command line argument"
+        },
+        "additionalSettings": {
+          "type": "object",
+          "description": "Additional server configuration properties to set",
+          "additionalProperties": true
+        }
+      }
+    },
+    "clientSettings": {
+      "type": "object",
+      "description": "Client configuration settings",
+      "required": ["simulationModeKey", "simulationModeValue"],
+      "properties": {
+        "simulationModeKey": {
+          "type": "string",
+          "description": "Key name for simulation mode in client config"
+        },
+        "simulationModeValue": {
+          "type": "string",
+          "description": "Value to set for simulation mode"
+        },
+        "additionalSettings": {
+          "type": "object",
+          "description": "Additional client configuration properties to set",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "description": "Feature flags and behavior settings",
+      "properties": {
+        "enableDatabaseOperations": {
+          "type": "boolean",
+          "description": "Enable database setup/cleanup operations",
+          "default": false
+        },
+        "startupDelay": {
+          "type": "number",
+          "description": "Delay in seconds between server and client startup",
+          "minimum": 0,
+          "maximum": 60,
+          "default": 5
+        },
+        "waitForServerStartup": {
+          "type": "boolean",
+          "description": "Wait for server to fully start before launching client",
+          "default": true
+        },
+        "autoRestoreOnError": {
+          "type": "boolean",
+          "description": "Automatically restore configurations on error",
+          "default": true
+        },
+        "showDetailedProgress": {
+          "type": "boolean",
+          "description": "Show detailed progress information",
+          "default": true
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "description": "Database operation settings",
+      "properties": {
+        "setupScripts": {
+          "type": "array",
+          "description": "SQL scripts to run during database setup",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cleanupScripts": {
+          "type": "array",
+          "description": "SQL scripts to run during database cleanup",
+          "items": {
+            "type": "string"
+          }
+        },
+        "connectionString": {
+          "type": "string",
+          "description": "Database connection string"
+        },
+        "timeout": {
+          "type": "number",
+          "description": "Database operation timeout in seconds",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30
+        }
+      }
+    },
+    "advanced": {
+      "type": "object",
+      "description": "Advanced configuration options",
+      "properties": {
+        "customPreTestCommands": {
+          "type": "array",
+          "description": "Custom commands to run before test execution",
+          "items": {
+            "type": "string"
+          }
+        },
+        "customPostTestCommands": {
+          "type": "array",
+          "description": "Custom commands to run after test execution",
+          "items": {
+            "type": "string"
+          }
+        },
+        "environmentVariables": {
+          "type": "object",
+          "description": "Environment variables to set for test processes",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "processTimeout": {
+          "type": "number",
+          "description": "Maximum time in seconds to wait for processes",
+          "minimum": 30,
+          "maximum": 3600,
+          "default": 300
+        },
+        "maxRetries": {
+          "type": "number",
+          "description": "Maximum number of retry attempts on failure",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 3
+        }
+      }
+    }
+  }
+}

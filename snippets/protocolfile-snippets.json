@@ -1,0 +1,294 @@
+{
+  "Basic ProtocolFile Template": {
+    "prefix": "protocol-basic",
+    "body": [
+      "{",
+      "  \"\\$schema\": \"./schemas/ProtocolFile.schema.json\",",
+      "  \"MethodInformation\": {",
+      "    \"Id\": \"TDM_auto\",",
+      "    \"DisplayName\": \"${1:TDM Auto Protocol}\",",
+      "    \"Version\": \"1.0\",",
+      "    \"MaximumNumberOfProcessingCycles\": ${2:1},",
+      "    \"MainTitle\": \"${3:Therapeutic Drug Monitoring}\",",
+      "    \"SubTitle\": \"${4:Automated Analysis Protocol}\",",
+      "    \"OrderNumber\": \"92111\",",
+      "    \"MaximumNumberOfSamples\": ${5:192},",
+      "    \"MaximumNumberOfAssays\": ${6:1},",
+      "    \"SamplesLayoutType\": \"${7|SAMPLES_LAYOUT_COMBINED,SAMPLES_LAYOUT_SPLIT|}\"",
+      "  },",
+      "  \"AssayInformation\": [",
+      "    {",
+      "      \"Type\": \"${8|NL1XT,AD1XT,AntiHIV|}\",",
+      "      \"DisplayName\": \"${9:1/XT}\",",
+      "      \"MinimumNumberOfPatientSamplesOnFirstPlate\": ${10:5},",
+      "      \"StopPreparationWithFailedCalibrator\": ${11:false},",
+      "      \"StopPreparationWithFailedControl\": ${12:false},",
+      "      \"ValidityOfCalibrationInDays\": ${13:5},",
+      "      \"CalibratorLayoutRules\": [],",
+      "      \"ControlLayoutRules\": []",
+      "    }",
+      "  ],",
+      "  \"LoadingWorkflowSteps\": [],",
+      "  \"ProcessingWorkflowSteps\": []",
+      "}"
+    ],
+    "description": "Complete basic ProtocolFile template for laboratory testing"
+  },
+
+  "Method Information Block": {
+    "prefix": "method-info",
+    "body": [
+      "\"MethodInformation\": {",
+      "  \"Id\": \"TDM_auto\",",
+      "  \"DisplayName\": \"${1:Protocol Name}\",",
+      "  \"Version\": \"1.0\",",
+      "  \"MaximumNumberOfProcessingCycles\": ${2:1},",
+      "  \"MainTitle\": \"${3:Main Title}\",",
+      "  \"SubTitle\": \"${4:Sub Title}\",",
+      "  \"OrderNumber\": \"92111\",",
+      "  \"MaximumNumberOfSamples\": ${5:192},",
+      "  \"MaximumNumberOfAssays\": ${6:1},",
+      "  \"SamplesLayoutType\": \"${7|SAMPLES_LAYOUT_COMBINED,SAMPLES_LAYOUT_SPLIT|}\"",
+      "}$0"
+    ],
+    "description": "Method information configuration block"
+  },
+
+  "Assay Information Block": {
+    "prefix": "assay-info",
+    "body": [
+      "{",
+      "  \"Type\": \"${1|NL1XT,AD1XT,AntiHIV|}\",",
+      "  \"DisplayName\": \"${2:Assay Display Name}\",",
+      "  \"MinimumNumberOfPatientSamplesOnFirstPlate\": ${3:5},",
+      "  \"StopPreparationWithFailedCalibrator\": ${4:false},",
+      "  \"StopPreparationWithFailedControl\": ${5:false},",
+      "  \"ValidityOfCalibrationInDays\": ${6:5},",
+      "  \"CalibratorLayoutRules\": [",
+      "    $7",
+      "  ],",
+      "  \"ControlLayoutRules\": [",
+      "    $8",
+      "  ]",
+      "}$0"
+    ],
+    "description": "Assay information configuration"
+  },
+
+  "Calibrator Layout Rule": {
+    "prefix": "calibrator-rule",
+    "body": [
+      "{",
+      "  \"DisplayName\": \"${1:[TYPE]} Calibrator Level ${2:0}\",",
+      "  \"Level\": ${2:0},",
+      "  \"PrependToPatientSamples\": ${3:true},",
+      "  \"AppendToPatientSamples\": ${4:true},",
+      "  \"FrequencyOfInterspersal\": ${5:5},",
+      "  \"OffsetOfInterspersal\": ${6:0}",
+      "}$0"
+    ],
+    "description": "Calibrator layout rule configuration"
+  },
+
+  "Control Layout Rule": {
+    "prefix": "control-rule",
+    "body": [
+      "{",
+      "  \"DisplayName\": \"${1:[TYPE]} Control Level ${2:0}\",",
+      "  \"Level\": ${2:0},",
+      "  \"PrependToPatientSamples\": ${3:true},",
+      "  \"AppendToPatientSamples\": ${4:true},",
+      "  \"FrequencyOfInterspersal\": ${5:5},",
+      "  \"OffsetOfInterspersal\": ${6:0}",
+      "}$0"
+    ],
+    "description": "Control layout rule configuration"
+  },
+
+  "Loading Workflow Step": {
+    "prefix": "loading-step",
+    "body": [
+      "{",
+      "  \"StepType\": \"${1:LoadingStep}\",",
+      "  \"StepParameters\": {",
+      "    \"TipLabwareType\": \"HIGH_VOLUME_FILTER_TIP\",",
+      "    \"AspirationLiquidClassName\": \"HighVolumeFilter_Water_DispenseJet_Part_Dummy\",",
+      "    \"RequiredPlates\": [",
+      "      $2",
+      "    ],",
+      "    \"RequiredTipRacks\": [",
+      "      $3",
+      "    ],",
+      "    \"RequiredReagents\": [",
+      "      $4",
+      "    ],",
+      "    \"RequiredCalibrators\": [",
+      "      $5",
+      "    ],",
+      "    \"RequiredControls\": [",
+      "      $6",
+      "    ]",
+      "  }",
+      "}$0"
+    ],
+    "description": "Loading workflow step configuration"
+  },
+
+  "Required Plate": {
+    "prefix": "required-plate",
+    "body": [
+      "{",
+      "  \"StackPosition\": ${1:0},",
+      "  \"LabwareType\": \"${2|DWP1,DWP2,CounterweightPlate|}\",",
+      "  \"DisplayName\": \"${3:Plate Name}\",",
+      "  \"ArticleNumber\": \"${4:12345}\",",
+      "  \"BarcodeMask\": \"${5:*}\",",
+      "  \"FullFilename\": \"${6:plate.def}\",",
+      "  \"GripHeight\": ${7:10},",
+      "  \"GripWidth\": ${8:85},",
+      "  \"GripOpeningWidth\": ${9:90},",
+      "  \"GripForce\": ${10:15}",
+      "}$0"
+    ],
+    "description": "Required plate configuration"
+  },
+
+  "Required Calibrator": {
+    "prefix": "required-calibrator",
+    "body": [
+      "{",
+      "  \"Level\": ${1:0},",
+      "  \"BarcodeMask\": \"${2:*}\",",
+      "  \"DisplayName\": \"${3:Calibrator Level} ${1:0}\",",
+      "  \"ArticleNumber\": \"${4:CAL001}\",",
+      "  \"MinimumNumberOfContainers\": ${5:1},",
+      "  \"MaximumNumberOfContainers\": ${6:1},",
+      "  \"FullFilename\": \"${7:calibrator.def}\",",
+      "  \"Assays\": [",
+      "    {",
+      "      \"Type\": \"${8|NL1XT,AD1XT,AntiHIV|}\"",
+      "    }",
+      "  ]",
+      "}$0"
+    ],
+    "description": "Required calibrator configuration"
+  },
+
+  "Processing Workflow Step": {
+    "prefix": "processing-step",
+    "body": [
+      "{",
+      "  \"GroupDisplayName\": \"${1:Processing Group}\",",
+      "  \"GroupIndex\": ${2:0},",
+      "  \"GroupSteps\": [",
+      "    {",
+      "      \"StepIndex\": ${3:0},",
+      "      \"StepType\": \"${4:ProcessingStep}\",",
+      "      \"StepParameters\": {",
+      "        \"TipLabwareType\": \"HIGH_VOLUME_FILTER_TIP\",",
+      "        \"AspirationLiquidClassName\": \"HighVolumeFilter_Water_DispenseJet_Part_Dummy\",",
+      "        \"DispensationLiquidClassName\": \"HighVolumeFilter_Water_DispenseJet_Part_Dummy\",",
+      "        \"SourceLabwareType\": \"${5:DWP1}\",",
+      "        \"TargetLabwareType\": \"${6|DWP1,DWP2|}\",",
+      "        \"TargetLabwareUseState\": \"${7|AVAILABLE,IN_USE|}\",",
+      "        \"SampleTypes\": [",
+      "          \"${8|CALIBRATOR_SAMPLE,CONTROL_SAMPLE,PATIENT_SAMPLE|}\"",
+      "        ]",
+      "      }",
+      "    }",
+      "  ]",
+      "}$0"
+    ],
+    "description": "Processing workflow step group"
+  },
+
+  "Assay Specific Parameter": {
+    "prefix": "assay-param",
+    "body": [
+      "{",
+      "  \"AssayType\": \"${1|NL1XT,AD1XT,AntiHIV|}\",",
+      "  \"AspirationVolume\": ${2:100},",
+      "  \"DispensationVolume\": ${3:100}",
+      "}$0"
+    ],
+    "description": "Assay-specific parameter configuration"
+  },
+
+  "Quick Assay Type": {
+    "prefix": "assay",
+    "body": [
+      "\"${1|NL1XT,AD1XT,AntiHIV|}\"$0"
+    ],
+    "description": "Quick assay type selection"
+  },
+
+  "Quick Labware Type": {
+    "prefix": "labware",
+    "body": [
+      "\"${1|DWP1,DWP2,CounterweightPlate|}\"$0"
+    ],
+    "description": "Quick labware type selection"
+  },
+
+  "Quick Sample Type": {
+    "prefix": "sample",
+    "body": [
+      "\"${1|CALIBRATOR_SAMPLE,CONTROL_SAMPLE,PATIENT_SAMPLE|}\"$0"
+    ],
+    "description": "Quick sample type selection"
+  },
+
+  "Complete NL1XT Protocol": {
+    "prefix": "protocol-nl1xt",
+    "body": [
+      "{",
+      "  \"\\$schema\": \"./schemas/ProtocolFile.schema.json\",",
+      "  \"MethodInformation\": {",
+      "    \"Id\": \"TDM_auto\",",
+      "    \"DisplayName\": \"NL1XT Automated Protocol\",",
+      "    \"Version\": \"1.0\",",
+      "    \"MaximumNumberOfProcessingCycles\": 1,",
+      "    \"MainTitle\": \"NL1XT Analysis\",",
+      "    \"SubTitle\": \"Automated Laboratory Protocol\",",
+      "    \"OrderNumber\": \"92111\",",
+      "    \"MaximumNumberOfSamples\": 192,",
+      "    \"MaximumNumberOfAssays\": 1,",
+      "    \"SamplesLayoutType\": \"SAMPLES_LAYOUT_COMBINED\"",
+      "  },",
+      "  \"AssayInformation\": [",
+      "    {",
+      "      \"Type\": \"NL1XT\",",
+      "      \"DisplayName\": \"NL1XT\",",
+      "      \"MinimumNumberOfPatientSamplesOnFirstPlate\": 5,",
+      "      \"StopPreparationWithFailedCalibrator\": false,",
+      "      \"StopPreparationWithFailedControl\": false,",
+      "      \"ValidityOfCalibrationInDays\": 5,",
+      "      \"CalibratorLayoutRules\": [",
+      "        {",
+      "          \"DisplayName\": \"NL1XT Calibrator Level 0\",",
+      "          \"Level\": 0,",
+      "          \"PrependToPatientSamples\": true,",
+      "          \"AppendToPatientSamples\": true,",
+      "          \"FrequencyOfInterspersal\": 5,",
+      "          \"OffsetOfInterspersal\": 0",
+      "        }",
+      "      ],",
+      "      \"ControlLayoutRules\": [",
+      "        {",
+      "          \"DisplayName\": \"NL1XT Control Level 0\",",
+      "          \"Level\": 0,",
+      "          \"PrependToPatientSamples\": true,",
+      "          \"AppendToPatientSamples\": true,",
+      "          \"FrequencyOfInterspersal\": 5,",
+      "          \"OffsetOfInterspersal\": 0",
+      "        }",
+      "      ]",
+      "    }",
+      "  ],",
+      "  \"LoadingWorkflowSteps\": [],",
+      "  \"ProcessingWorkflowSteps\": []",
+      "}"
+    ],
+    "description": "Complete NL1XT protocol template"
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ProtocolFile",
+  "scopeName": "source.json.protocol",
+  "fileTypes": ["protocol.json"],
+  "patterns": [
+    {
+      "include": "source.json"
+    },
+    {
+      "name": "meta.protocol.version",
+      "begin": "(\"version\")(\\s*)(:)",
+      "beginCaptures": {
+        "1": { "name": "support.property-value.protocol" },
+        "2": { "name": "punctuation.whitespace.protocol" },
+        "3": { "name": "punctuation.separator.protocol" }
+      },
+      "end": "(?=[,}])",
+      "patterns": [
+        {
+          "name": "string.quoted.double.protocol.version",
+          "match": "\"\\d+\\.\\d+\\.\\d+\"",
+          "captures": {
+            "0": { "name": "constant.numeric.protocol.version" }
+          }
+        },
+        {
+          "include": "source.json"
+        }
+      ]
+    },
+    {
+      "name": "meta.protocol.environment",
+      "begin": "(\"(?:production|staging|development|test)\")(\\s*)(:)",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.protocol.environment" },
+        "2": { "name": "punctuation.whitespace.protocol" },
+        "3": { "name": "punctuation.separator.protocol" }
+      },
+      "end": "(?=[,}])",
+      "patterns": [
+        {
+          "include": "#features"
+        },
+        {
+          "include": "source.json"
+        }
+      ]
+    },
+    {
+      "name": "meta.protocol.features",
+      "begin": "(\"features\")(\\s*)(:)",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.protocol.features" },
+        "2": { "name": "punctuation.whitespace.protocol" },
+        "3": { "name": "punctuation.separator.protocol" }
+      },
+      "end": "(?=[,}])",
+      "patterns": [
+        {
+          "include": "#feature-toggles"
+        },
+        {
+          "include": "source.json"
+        }
+      ]
+    },
+    {
+      "name": "meta.protocol.metadata",
+      "begin": "(\"(?:lastUpdated|createdDate|author|testType)\")(\\s*)(:)",
+      "beginCaptures": {
+        "1": { "name": "support.property-value.protocol.metadata" },
+        "2": { "name": "punctuation.whitespace.protocol" },
+        "3": { "name": "punctuation.separator.protocol" }
+      },
+      "end": "(?=[,}])",
+      "patterns": [
+        {
+          "name": "string.quoted.double.protocol.timestamp",
+          "match": "\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z?\"",
+          "captures": {
+            "0": { "name": "constant.other.timestamp.protocol" }
+          }
+        },
+        {
+          "include": "source.json"
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "features": {
+      "patterns": [
+        {
+          "include": "#feature-toggles"
+        },
+        {
+          "include": "source.json"
+        }
+      ]
+    },
+    "feature-toggles": {
+      "patterns": [
+        {
+          "name": "meta.protocol.feature-toggle",
+          "begin": "(\"[^\"]+\")(\\s*)(:)(\\s*)(true|false)",
+          "beginCaptures": {
+            "1": { "name": "variable.other.property.protocol.feature" },
+            "2": { "name": "punctuation.whitespace.protocol" },
+            "3": { "name": "punctuation.separator.protocol" },
+            "4": { "name": "punctuation.whitespace.protocol" },
+            "5": { "name": "constant.language.boolean.protocol.toggle" }
+          },
+          "end": "(?=[,}])"
+        },
+        {
+          "include": "source.json"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "name": "Default Configuration",
+  "description": "Default configuration for ProtocolFile test runner",
+  "paths": {
+    "serverDirectory": "../../software.comm",
+    "clientDirectory": "../../software.gui",
+    "serverExecutable": "software.comm.exe.bat",
+    "serverExecutableAlt": "software.comm.exe",
+    "clientExecutable": "software.gui.exe.bat",
+    "clientExecutableAlt": "software.gui.exe"
+  },
+  "configFiles": {
+    "serverConfigFile": "appsettings.json",
+    "clientConfigFile": "app.config",
+    "backupSuffix": ".backup"
+  },
+  "serverSettings": {
+    "simulationProtocolPrefix": "--SimulationMode true",
+    "additionalSettings": {
+      "LogLevel": "Debug",
+      "EnableDetailedLogging": true
+    }
+  },
+  "clientSettings": {
+    "simulationModeKey": "SimulationMode",
+    "simulationModeValue": "true",
+    "additionalSettings": {
+      "Timeout": "30000",
+      "RetryCount": "3",
+      "EnableDebugMode": "true"
+    }
+  },
+  "features": {
+    "enableDatabaseOperations": false,
+    "startupDelay": 5,
+    "waitForServerStartup": true,
+    "autoRestoreOnError": true,
+    "showDetailedProgress": true
+  },
+  "database": {
+    "setupScripts": [
+      "scripts/setup_test_db.sql",
+      "scripts/insert_test_data.sql"
+    ],
+    "cleanupScripts": [
+      "scripts/cleanup_test_db.sql"
+    ],
+    "connectionString": "",
+    "timeout": 30
+  },
+  "advanced": {
+    "customPreTestCommands": [],
+    "customPostTestCommands": [],
+    "environmentVariables": {},
+    "processTimeout": 300,
+    "maxRetries": 3
+  }
+}

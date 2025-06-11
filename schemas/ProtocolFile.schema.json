@@ -1,0 +1,744 @@
+{
+    "$ref": "#/definitions/ProtocolFile",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ProtocolFile Schema",
+    "type": "object",
+    "required": ["MethodInformation", "AssayInformation", "LoadingWorkflowSteps", "ProcessingWorkflowSteps"],
+    "properties": {
+        "MethodInformation": {
+             "type": "object",
+             "description": "Information about the methods",
+             "additionalProperties": {
+                 "$ref": "#/definitions/MethodInformation"
+                }
+        },
+        "AssayInformation": {
+             "type": "object",
+             "description": "Information about the methods",
+             "additionalProperties": {
+                 "$ref": "#/definitions/AssayInformation"
+                }
+        }
+    },
+    "definitions": {
+        "ProtocolFile": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "$schema": {
+                  "type": "string"
+                },
+                "MethodInformation": {
+                    "$ref": "#/definitions/MethodInformation"
+                },
+                "AssayInformation": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AssayInformation"
+                    }
+                },
+                "LoadingWorkflowSteps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/LoadingWorkflowStep"
+                    }
+                },
+                "ProcessingWorkflowSteps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ProcessingWorkflowStep"
+                    }
+                }
+            },
+            "required": [
+                "AssayInformation",
+                "LoadingWorkflowSteps",
+                "MethodInformation",
+                "ProcessingWorkflowSteps"
+            ],
+            "title": "ProtocolFile"
+        },
+        "MethodInformation": {
+            "type": "object",
+            "default":{
+                "Id": "",
+                "DisplayName": "DisplayName",
+                "Version": "1.0",
+                "MaximumNumberOfProcessingCycles": 1,
+                "MainTitle": "MainTitle",
+                "SubTitle": "SubTitle",
+                "OrderNumber": "",
+                "MaximumNumberOfSamples": 192,
+                "MaximumNumberOfAssays": 1,
+                "SamplesLayoutType": ""
+            },
+            "properties": {
+                "Id": {
+                    "type": "string",
+                    "enum": ["TDM_auto"]
+                },
+                "DisplayName": {
+                    "type": "string"
+                },
+                "Version": {
+                    "type": "string",
+                    "enum": ["1.0"]
+                },
+                "MaximumNumberOfProcessingCycles": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2
+                },
+                "MainTitle": {
+                    "type": "string"
+                },
+                "SubTitle": {
+                    "type": "string"
+                },
+                "OrderNumber": {
+                    "type": "string",
+                    "format": "integer",
+                    "enum": ["92111"]
+                },
+                "MaximumNumberOfSamples": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 192
+                },
+                "MaximumNumberOfAssays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                },
+                "SamplesLayoutType": {
+                    "type": "string",
+                    "enum": ["SAMPLES_LAYOUT_COMBINED", "SAMPLES_LAYOUT_SPLIT"]
+                }
+            },
+            "required": [
+                "DisplayName",
+                "Id",
+                "MainTitle",
+                "MaximumNumberOfAssays",
+                "MaximumNumberOfProcessingCycles",
+                "MaximumNumberOfSamples",
+                "OrderNumber",
+                "SamplesLayoutType",
+                "SubTitle",
+                "Version"
+            ],
+            "title": "MethodInformation"
+        },
+        "AssayInformation": {
+            "type": "object",
+             "default":{
+                "Type": "",
+                "DisplayName": "1/XT",
+                "MinimumNumberOfPatientSamplesOnFirstPlate": 5,
+                "StopPreparationWithFailedCalibrator": false,
+                "StopPreparationWithFailedControl": false,
+                "ValidityOfCalibrationInDays": 5,
+                "CalibratorLayoutRules": [],
+                "ControlLayoutRules": []
+             },
+            "properties": {
+                "Type": {
+                    "$ref": "#/definitions/Type"
+                },
+                "DisplayName": {
+                    "type": "string"
+                },
+                "MinimumNumberOfPatientSamplesOnFirstPlate": {
+                    "type": "integer"
+                },
+                "StopPreparationWithFailedCalibrator": {
+                    "type": "boolean"
+                },
+                "StopPreparationWithFailedControl": {
+                    "type": "boolean"
+                },
+                "ValidityOfCalibrationInDays": {
+                    "type": "integer"
+                },
+                "CalibratorLayoutRules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/LayoutRuleCalibrator"
+                    }
+                },
+                "ControlLayoutRules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/LayoutRuleControl"
+                    }
+                }
+            },
+            "required": [
+                "CalibratorLayoutRules",
+                "ControlLayoutRules",
+                "DisplayName",
+                "MinimumNumberOfPatientSamplesOnFirstPlate",
+                "StopPreparationWithFailedCalibrator",
+                "StopPreparationWithFailedControl",
+                "Type",
+                "ValidityOfCalibrationInDays"
+            ],
+            "title": "AssayInformation"
+        },
+        "LayoutRuleCalibrator": {
+            "type": "object",
+            "default":{
+                "DisplayName": "[TYPE] Calibrator Level 0",
+                "Level": 0,
+			    "PrependToPatientSamples": true,
+			    "AppendToPatientSamples": true,
+			    "FrequencyOfInterspersal": 5,
+			    "OffsetOfInterspersal": 0
+            },
+            "properties": {
+                "DisplayName": {
+                    "type": "string"
+                },
+                "Level": {
+                    "type": "integer"
+                },
+                "PrependToPatientSamples": {
+                    "type": "boolean"
+                },
+                "AppendToPatientSamples": {
+                    "type": "boolean"
+                },
+                "FrequencyOfInterspersal": {
+                    "type": "integer"
+                },
+                "OffsetOfInterspersal": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "AppendToPatientSamples",
+                "DisplayName",
+                "FrequencyOfInterspersal",
+                "Level",
+                "OffsetOfInterspersal",
+                "PrependToPatientSamples"
+            ],
+            "title": "LayoutRule"
+        },
+        "LayoutRuleControl": {
+            "type": "object",
+            "default":{
+                "DisplayName": "[TYPE] Control Level 0",
+                "Level": 0,
+			    "PrependToPatientSamples": true,
+			    "AppendToPatientSamples": true,
+			    "FrequencyOfInterspersal": 5,
+			    "OffsetOfInterspersal": 0
+            },
+            "properties": {
+                "DisplayName": {
+                    "type": "string"
+                },
+                "Level": {
+                    "type": "integer"
+                },
+                "PrependToPatientSamples": {
+                    "type": "boolean"
+                },
+                "AppendToPatientSamples": {
+                    "type": "boolean"
+                },
+                "FrequencyOfInterspersal": {
+                    "type": "integer"
+                },
+                "OffsetOfInterspersal": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "AppendToPatientSamples",
+                "DisplayName",
+                "FrequencyOfInterspersal",
+                "Level",
+                "OffsetOfInterspersal",
+                "PrependToPatientSamples"
+            ],
+            "title": "LayoutRule"
+        },
+        "LoadingWorkflowStep": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "StepType": {
+                    "type": "string"
+                },
+                "StepParameters": {
+                    "$ref": "#/definitions/LoadingWorkflowStepStepParameters"
+                }
+            },
+            "required": [
+                "StepParameters",
+                "StepType"
+            ],
+            "title": "LoadingWorkflowStep"
+        },
+        "LoadingWorkflowStepStepParameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "TipLabwareType": {
+                    "$ref": "#/definitions/TipLabwareType"
+                },
+                "AspirationLiquidClassName": {
+                    "$ref": "#/definitions/AtionLiquidClassName"
+                },
+                "RequiredCounterweightPlates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RequiredPlate"
+                    }
+                },
+                "RequiredCounterweightWater": {
+                    "$ref": "#/definitions/RequiredCounterweightWaterClass"
+                },
+                "BarcodeMask": {
+                    "type": "string"
+                },
+                "FullFilename": {
+                    "type": "string"
+                },
+                "RequiredPlates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RequiredPlate"
+                    }
+                },
+                "RequiredTipRacks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RequiredCounterweightWaterClass"
+                    }
+                },
+                "RequiredReagents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RequiredCalibratorElement"
+                    }
+                },
+                "RequiredCalibrators": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RequiredCalibratorElement"
+                    }
+                },
+                "RequiredControls": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RequiredCalibratorElement"
+                    }
+                }
+            },
+            "required": [],
+            "title": "LoadingWorkflowStepStepParameters"
+        },
+        "RequiredCalibratorElement": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "Level": {
+                    "type": "integer"
+                },
+                "BarcodeMask": {
+                    "type": "string"
+                },
+                "DisplayName": {
+                    "type": "string"
+                },
+                "ArticleNumber": {
+                    "type": "string"
+                },
+                "MinimumNumberOfContainers": {
+                    "type": "integer"
+                },
+                "MaximumNumberOfContainers": {
+                    "type": "integer"
+                },
+                "FullFilename": {
+                    "type": "string"
+                },
+                "Assays": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Assay"
+                    }
+                },
+                "LabwareType": {
+                    "type": "string"
+                },
+                "BottleType": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "ArticleNumber",
+                "Assays",
+                "BarcodeMask",
+                "DisplayName",
+                "FullFilename",
+                "MaximumNumberOfContainers",
+                "MinimumNumberOfContainers"
+            ],
+            "title": "RequiredCalibratorElement"
+        },
+        "Assay": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "Type": {
+                    "$ref": "#/definitions/Type"
+                }
+            },
+            "required": [
+                "Type"
+            ],
+            "title": "Assay"
+        },
+        "RequiredPlate": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "StackPosition": {
+                    "type": "integer"
+                },
+                "LabwareType": {
+                    "$ref": "#/definitions/LabwareType"
+                },
+                "DisplayName": {
+                    "type": "string"
+                },
+                "ArticleNumber": {
+                    "type": "string",
+                    "format": "integer"
+                },
+                "BarcodeMask": {
+                    "type": "string"
+                },
+                "PlateControlType": {
+                    "type": "string"
+                },
+                "FullFilename": {
+                    "type": "string"
+                },
+                "GripHeight": {
+                    "type": "integer"
+                },
+                "GripWidth": {
+                    "type": "integer"
+                },
+                "GripOpeningWidth": {
+                    "type": "integer"
+                },
+                "GripForce": {
+                    "type": "integer"
+                },
+                "IsReusable": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "ArticleNumber",
+                "BarcodeMask",
+                "DisplayName",
+                "FullFilename",
+                "GripForce",
+                "GripHeight",
+                "GripOpeningWidth",
+                "GripWidth",
+                "LabwareType"
+            ],
+            "title": "RequiredPlate"
+        },
+        "RequiredCounterweightWaterClass": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "LabwareType": {
+                    "type": "string"
+                },
+                "DisplayName": {
+                    "type": "string"
+                },
+                "ArticleNumber": {
+                    "type": "string"
+                },
+                "BarcodeMask": {
+                    "type": "string"
+                },
+                "FullFilename": {
+                    "type": "string"
+                },
+                "RequiredVolume": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "ArticleNumber",
+                "BarcodeMask",
+                "DisplayName",
+                "FullFilename",
+                "LabwareType"
+            ],
+            "title": "RequiredCounterweightWaterClass"
+        },
+        "ProcessingWorkflowStep": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "GroupDisplayName": {
+                    "type": "string"
+                },
+                "GroupIndex": {
+                    "type": "integer"
+                },
+                "GroupSteps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/GroupStep"
+                    }
+                }
+            },
+            "required": [
+                "GroupDisplayName",
+                "GroupIndex",
+                "GroupSteps"
+            ],
+            "title": "ProcessingWorkflowStep"
+        },
+        "GroupStep": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "StepIndex": {
+                    "type": "integer"
+                },
+                "StepType": {
+                    "type": "string"
+                },
+                "StepParameters": {
+                    "$ref": "#/definitions/GroupStepStepParameters"
+                }
+            },
+            "required": [
+                "StepIndex",
+                "StepParameters",
+                "StepType"
+            ],
+            "title": "GroupStep"
+        },
+        "GroupStepStepParameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "TipLabwareType": {
+                    "$ref": "#/definitions/TipLabwareType"
+                },
+                "AspirationLiquidClassName": {
+                    "$ref": "#/definitions/AtionLiquidClassName"
+                },
+                "DispensationLiquidClassName": {
+                    "$ref": "#/definitions/AtionLiquidClassName"
+                },
+                "SourceLabwareType": {
+                    "type": "string"
+                },
+                "SampleTypes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SampleType"
+                    }
+                },
+                "TargetLabwareType": {
+                    "$ref": "#/definitions/LabwareType"
+                },
+                "TargetLabwareUseState": {
+                    "$ref": "#/definitions/TargetLabwareUseState"
+                },
+                "AssaySpecificParameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AssaySpecificParameter"
+                    }
+                },
+                "Density": {
+                    "type": "integer"
+                },
+                "AspirationCapacitiveLldSensitivity": {
+                    "type": "integer"
+                },
+                "AspirationSubmergeDepth": {
+                    "type": "integer"
+                },
+                "AspirationLiquidFollowing": {
+                    "type": "boolean"
+                },
+                "AspirationMixingType": {
+                    "type": "integer"
+                },
+                "DispensationLiquidFollowing": {
+                    "type": "boolean"
+                },
+                "DispensationSubmergeDepth": {
+                    "type": "integer"
+                },
+                "DispensationHeight": {
+                    "type": "integer"
+                },
+                "DispensationCapacitiveLldSensitivity": {
+                    "type": "integer"
+                },
+                "MaximumNumberOfUsedChannels": {
+                    "type": "integer"
+                },
+                "AspirationMixingCycles": {
+                    "type": "integer"
+                },
+                "PreAliquotVolume": {
+                    "type": "integer"
+                },
+                "PostAliquotVolume": {
+                    "type": "integer"
+                },
+                "MinimizeZMove": {
+                    "type": "boolean"
+                },
+                "LabwareType": {
+                    "$ref": "#/definitions/LabwareType"
+                },
+                "Time": {
+                    "type": "integer"
+                },
+                "Speed": {
+                    "type": "integer"
+                },
+                "Temperature": {
+                    "type": "integer"
+                },
+                "MaximumTemperature": {
+                    "type": "integer"
+                },
+                "KeepGripperTools": {
+                    "type": "boolean"
+                },
+                "ReferenceLabwareType": {
+                    "$ref": "#/definitions/LabwareType"
+                },
+                "Acceleration": {
+                    "type": "integer"
+                },
+                "Deceleration": {
+                    "type": "integer"
+                },
+                "Plates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Plate"
+                    }
+                },
+                "CounterweightPlates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Plate"
+                    }
+                }
+            },
+            "required": [],
+            "title": "GroupStepStepParameters"
+        },
+        "AssaySpecificParameter": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "AssayType": {
+                    "$ref": "#/definitions/Type"
+                },
+                "AspirationVolume": {
+                    "type": "integer"
+                },
+                "DispensationVolume": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "AssayType",
+                "DispensationVolume"
+            ],
+            "title": "AssaySpecificParameter"
+        },
+        "Plate": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "LabwareType": {
+                    "$ref": "#/definitions/LabwareType"
+                },
+                "StackPosition": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "LabwareType",
+                "StackPosition"
+            ],
+            "title": "Plate"
+        },
+        "Type": {
+            "type": "string",
+            "enum": [
+                "NL1XT",
+                "AD1XT",
+                "AntiHIV"
+            ],
+            "title": "Type"
+        },
+        "AtionLiquidClassName": {
+            "type": "string",
+            "enum": [
+                "HighVolumeFilter_Water_DispenseJet_Part_Dummy"
+            ],
+            "title": "AtionLiquidClassName"
+        },
+        "LabwareType": {
+            "type": "string",
+            "enum": [
+                "DWP1",
+                "CounterweightPlate",
+                "DWP2"
+            ],
+            "title": "LabwareType"
+        },
+        "TipLabwareType": {
+            "type": "string",
+            "enum": [
+                "HIGH_VOLUME_FILTER_TIP"
+            ],
+            "title": "TipLabwareType"
+        },
+        "SampleType": {
+            "type": "string",
+            "enum": [
+                "CALIBRATOR_SAMPLE",
+                "CONTROL_SAMPLE",
+                "PATIENT_SAMPLE"
+            ],
+            "title": "SampleType"
+        },
+        "TargetLabwareUseState": {
+            "type": "string",
+            "enum": [
+                "AVAILABLE",
+                "IN_USE"
+            ],
+            "title": "TargetLabwareUseState"
+        }
+    }
+}
