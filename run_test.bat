@@ -5,6 +5,9 @@ REM ============================================================================
 REM CONFIGURATION SECTION - MODIFY THESE VARIABLES AS NEEDED
 REM ============================================================================
 
+REM === TEST PROTOCOL FILE ===
+set "TEST_PROTOCOL_DATA=TestProtocolData.json"
+
 REM === APPLICATION PATHS ===
 set "SERVER_DIR=..\..\software.comm"
 set "CLIENT_DIR=..\..\software.gui"
@@ -16,13 +19,17 @@ set "CLIENT_EXECUTABLE=software.gui.exe.bat"
 set "CLIENT_EXECUTABLE_ALT=software.gui.exe"
 
 REM === CONFIGURATION VALUES FOR JSON and XML ===
-set "SIMULATION_PROTOCOL_PREFIX=--SimulationMode true"
-set "CLIENT_SIMULATION_MODE_KEY=SimulationMode"
+set "SIMULATION_PROTOCOL_PREFIX=--runningmode InstrumentName --simudata"
+set "CLIENT_SIMULATION_MODE_KEY=IsSimulation"
 set "CLIENT_SIMULATION_MODE_VALUE=true"
 set "BACKUP_SUFFIX=.backup"
 
 REM === OPTIONAL FEATURES ===
-set "ENABLE_DATABASE_OPERATIONS=false"
+set "ENABLE_DATABASE_OPERATIONS=true"
+
+set "BARCODE_REGEX=[A-Za-z0-9_]{1,100}"
+
+set "DB_CARRIER_INPUT=carrieritems.json"
 
 REM ============================================================================
 REM MAIN SCRIPT EXECUTION
@@ -52,7 +59,7 @@ echo [Step 1] Searching for TestProtocol JSON file...
 set "PROTOCOL_FILE="
 set "JSON_FILES_FOUND="
 
-for %%f in ("%TEST_SCENARIO_DIR%*.json") do (
+for %%f in ("%TEST_SCENARIO_DIR%%TEST_PROTOCOL_DATA%") do (
     set "PROTOCOL_FILE=%%~nxf"
     set "JSON_FILES_FOUND=YES"
     echo   Found: %%~nxf
@@ -115,14 +122,14 @@ echo [Step 4] Configuring server (JSON format)...
 
 set "SIMULATION_PROTOCOL_VALUE=%SIMULATION_PROTOCOL_PREFIX% %ABSOLUTE_PROTOCOL_PATH%"
 
-powershell -Command "try { $config = Get-Content '%SERVER_CONFIG%' | ConvertFrom-Json; $config.SimulationProtocol = '%SIMULATION_PROTOCOL_VALUE%'; $config | ConvertTo-Json -Depth 10 | Set-Content '%SERVER_CONFIG%'; Write-Host 'SUCCESS: Server configured' } catch { Write-Host 'ERROR: ' + $_.Exception.Message; exit 1 }"
+powershell -Command "try { $config = Get-Content '%SERVER_CONFIG%' | ConvertFrom-Json; $config.MassStarControllerSettings.SimulationRunnerParameters = '%SIMULATION_PROTOCOL_VALUE%'; $config | ConvertTo-Json -Depth 10 | Set-Content '%SERVER_CONFIG%'; Write-Host 'SUCCESS: Server configured' } catch { Write-Host 'ERROR: ' + $_.Exception.Message; exit 1 }"
 
 if !errorlevel! neq 0 (
     echo ERROR: Server configuration failed
     goto :restore_and_exit
 )
 
-echo   SimulationProtocol: %SIMULATION_PROTOCOL_VALUE%
+echo   SimulationRunnerParameters: %SIMULATION_PROTOCOL_VALUE%
 echo.
 
 REM ============================================================================
@@ -182,7 +189,7 @@ echo SUCCESS: Test scenario "%TEST_SCENARIO_NAME%" is running
 echo.
 echo Configuration:
 echo   Protocol file: %PROTOCOL_FILE%
-echo   Server (JSON): SimulationProtocol configured
+echo   Server (JSON): SimulationRunnerParameters configured
 echo   Client (XML): %CLIENT_SIMULATION_MODE_KEY% = %CLIENT_SIMULATION_MODE_VALUE%
 echo.
 echo Applications are running in separate windows.
@@ -246,7 +253,13 @@ REM ============================================================================
 
 :DatabaseSetup
 REM Add your database setup commands here
-echo   Database setup placeholder - add your commands in :DatabaseSetup
+SQLCMD -Q "DROP DATABASE LabStudioDb"
+
+\\22-DNS-FS.chromsystems.de\Data\2201_Basic_Software_MassSTAR\Tools\DatabaseUtility\CS.MassStar.BasicSoftware.DatabaseUtility.exe --labware-input "%~dp0%DB_CARRIER_INPUT%"
+
+SQLCMD -Q "UPDATE[LabStudioDb].[dbo].[SampleTubeType] SET BarcodeRegex = '%BARCODE_REGEX%' WHERE Id = 'D1A541D7-EBC3-4C33-A8C4-94DC54D4F222'"
+
+REM echo   Database setup placeholder - add your commands in :DatabaseSetup
 goto :eof
 
 :DatabaseCleanup
