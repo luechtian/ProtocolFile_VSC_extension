@@ -5,36 +5,90 @@ REM ============================================================================
 REM CONFIGURATION SECTION - MODIFY THESE VARIABLES AS NEEDED
 REM ============================================================================
 
-REM === TEST PROTOCOL FILE ===
+REM === TEST PROTOCOL DATA FILE ===
 set "TEST_PROTOCOL_DATA=TestProtocolData.json"
 
+REM === ADDON DIRECTORY  ===
+set "ADDON_DIR=C:\Gitlab\cs.massstar.basicsoftware.protocolfile"
+
 REM === APPLICATION PATHS ===
-set "SERVER_DIR=..\..\software.comm"
-set "CLIENT_DIR=..\..\software.gui"
+set "SERVER_DIR=C:\Gitlab\cs.massstar.basicsoftware.comm\bin\Release\net9.0"
+set "CLIENT_DIR=C:\Gitlab\cs.massstar.basicsoftware.gui\src\CS.MassStar.BasicSoftware.GUI\WpfApp\bin\Release\net9.0-windows"
 set "SERVER_CONFIG_FILE=appsettings.json"
-set "CLIENT_CONFIG_FILE=app.config"
-set "SERVER_EXECUTABLE=software.comm.exe.bat"
-set "SERVER_EXECUTABLE_ALT=software.comm.exe"
-set "CLIENT_EXECUTABLE=software.gui.exe.bat"
-set "CLIENT_EXECUTABLE_ALT=software.gui.exe"
+set "CLIENT_CONFIG_FILE=Chromsystems.MassStar.BasicSoftware.GUI.dll.config"
+set "SERVER_EXECUTABLE=Chromsystems.MassStar.BasicSoftware.Backend.exe"
+set "SERVER_EXECUTABLE_ALT=Chromsystems.MassStar.BasicSoftware.Backend.exe"
+set "CLIENT_EXECUTABLE=Chromsystems.MassStar.BasicSoftware.GUI.exe"
+set "CLIENT_EXECUTABLE_ALT=Chromsystems.MassStar.BasicSoftware.GUI.exe"
 
 REM === CONFIGURATION VALUES FOR JSON and XML ===
-set "SIMULATION_PROTOCOL_PREFIX=--runningmode InstrumentName --simudata"
-set "CLIENT_SIMULATION_MODE_KEY=IsSimulation"
+set "SIMULATION_PROTOCOL_PREFIX=--runningmode Hamilton --simudata"
+set "CLIENT_SIMULATION_MODE_KEY=IsHamiltonSimulation"
 set "CLIENT_SIMULATION_MODE_VALUE=true"
 set "BACKUP_SUFFIX=.backup"
 
 REM === OPTIONAL FEATURES ===
 set "ENABLE_DATABASE_OPERATIONS=true"
 
-set "BARCODE_REGEX=[A-Za-z0-9_]{1,100}"
+set "BARCODE_REGEX="
 
-set "DB_CARRIER_INPUT=carrieritems.json"
+set "DB_CARRIER_INPUT=mfxcarrieritems.json"
+
+REM ============================================================================
+REM COMMAND LINE PARAMETER PROCESSING
+REM Usage: run_test.bat [--server-dir path] [--client-dir path] [--addon-dir path] [--config file]
+REM ============================================================================
+
+:parse_args
+if "%~1"=="" goto main_script
+if "%~1"=="--server-dir" (
+    set "SERVER_DIR=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--client-dir" (
+    set "CLIENT_DIR=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--addon-dir" (
+    set "ADDON_DIRECTORY=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--test-data" (
+    set "TEST_PROTOCOL_DATA=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--server-exe" (
+    set "SERVER_EXECUTABLE=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--client-exe" (
+    set "CLIENT_EXECUTABLE=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--help" (
+    goto show_help
+)
+REM Unknown parameter - skip it
+shift
+goto parse_args
 
 REM ============================================================================
 REM MAIN SCRIPT EXECUTION
 REM ============================================================================
 
+:main_script
 echo ========================================
 echo        TEST SCENARIO AUTOMATION
 echo ========================================
@@ -71,8 +125,25 @@ if not defined JSON_FILES_FOUND (
     exit /b 1
 )
 
+if not exist %TEST_PROTOCOL_DATA% (
+    echo ERROR: No JSON file found in this test scenario!
+    pause
+    exit /b 1
+)
+
 set "ABSOLUTE_PROTOCOL_PATH=%TEST_SCENARIO_DIR%%PROTOCOL_FILE%"
 echo   Using Protocol file: %PROTOCOL_FILE%
+echo.
+
+echo.
+echo [INFO] === CURRENT CONFIGURATION ===
+echo Server Directory    : %SERVER_DIR%
+echo Client Directory    : %CLIENT_DIR%
+echo Server Config File  : %SERVER_CONFIG_FILE%
+echo Client Config File  : %CLIENT_CONFIG_FILE%
+echo Server Executable   : %SERVER_EXECUTABLE%
+echo Client Executable   : %CLIENT_EXECUTABLE%
+echo AddOn Directory     : %ADDON_DIR%
 echo.
 
 REM ============================================================================
@@ -124,12 +195,15 @@ set "SIMULATION_PROTOCOL_VALUE=%SIMULATION_PROTOCOL_PREFIX% %ABSOLUTE_PROTOCOL_P
 
 powershell -Command "try { $config = Get-Content '%SERVER_CONFIG%' | ConvertFrom-Json; $config.MassStarControllerSettings.SimulationRunnerParameters = '%SIMULATION_PROTOCOL_VALUE%'; $config | ConvertTo-Json -Depth 10 | Set-Content '%SERVER_CONFIG%'; Write-Host 'SUCCESS: Server configured' } catch { Write-Host 'ERROR: ' + $_.Exception.Message; exit 1 }"
 
+powershell -Command "try { $config = Get-Content '%SERVER_CONFIG%' | ConvertFrom-Json; $config.AddOnDirectory = '%ADDON_DIR%'; $config | ConvertTo-Json -Depth 10 | Set-Content '%SERVER_CONFIG%'; Write-Host 'SUCCESS: Server configured' } catch { Write-Host 'ERROR: ' + $_.Exception.Message; exit 1 }"
+
 if !errorlevel! neq 0 (
     echo ERROR: Server configuration failed
     goto :restore_and_exit
 )
 
 echo   SimulationRunnerParameters: %SIMULATION_PROTOCOL_VALUE%
+echo   AddOnDirectory: %ADDON_DIR%
 echo.
 
 REM ============================================================================
@@ -266,6 +340,30 @@ goto :eof
 REM Add your database cleanup commands here  
 echo   Database cleanup placeholder - add your commands in :DatabaseCleanup
 goto :eof
+
+REM ============================================================================
+REM HELP DISPLAY
+REM ============================================================================
+
+:show_help
+echo.
+echo USAGE: run_test.bat [OPTIONS]
+echo.
+echo OPTIONS:
+echo   --server-dir PATH     Set server directory path
+echo   --client-dir PATH     Set client directory path  
+echo   --addon-dir PATH      Set AddOnDirectory path for appsettings.json
+echo   --server-exe FILE     Set server executable name
+echo   --client-exe FILE     Set client executable name
+echo   --test-data FILE      Set TestProtocolData file name
+echo   --help                Show this help message
+echo.
+echo EXAMPLES:
+echo   ./run_test.bat --addon-dir "C:\Gitlab\cs.massstar.basicsoftware.protocolfile"
+echo   ./run_test.bat --test-data "TestProtocolData.json"
+echo   ./run_test.bat --server-dir "..\..\custom_server" --addon-dir "D:\AddOns"
+echo.
+goto cleanup
 
 REM ============================================================================
 REM END
