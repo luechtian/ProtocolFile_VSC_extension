@@ -30,59 +30,12 @@ set "BACKUP_SUFFIX=.backup"
 REM === OPTIONAL FEATURES ===
 set "ENABLE_DATABASE_OPERATIONS=true"
 
-set "BARCODE_REGEX="
+set "BARCODE_REGEX=[A-Za-z0-9_]{1,100}"
 
 set "DB_CARRIER_INPUT=mfxcarrieritems.json"
 
-REM ============================================================================
-REM COMMAND LINE PARAMETER PROCESSING
-REM Usage: run_test.bat [--server-dir path] [--client-dir path] [--addon-dir path] [--config file]
-REM ============================================================================
-
-:parse_args
-if "%~1"=="" goto main_script
-if "%~1"=="--server-dir" (
-    set "SERVER_DIR=%~2"
-    shift
-    shift
-    goto parse_args
-)
-if "%~1"=="--client-dir" (
-    set "CLIENT_DIR=%~2"
-    shift
-    shift
-    goto parse_args
-)
-if "%~1"=="--addon-dir" (
-    set "ADDON_DIRECTORY=%~2"
-    shift
-    shift
-    goto parse_args
-)
-if "%~1"=="--test-data" (
-    set "TEST_PROTOCOL_DATA=%~2"
-    shift
-    shift
-    goto parse_args
-)
-if "%~1"=="--server-exe" (
-    set "SERVER_EXECUTABLE=%~2"
-    shift
-    shift
-    goto parse_args
-)
-if "%~1"=="--client-exe" (
-    set "CLIENT_EXECUTABLE=%~2"
-    shift
-    shift
-    goto parse_args
-)
-if "%~1"=="--help" (
-    goto show_help
-)
-REM Unknown parameter - skip it
-shift
-goto parse_args
+REM === CHECK FOR COMMAND LINE ARGUMENTS ===
+if not "%~1"=="" goto parse_args
 
 REM ============================================================================
 REM MAIN SCRIPT EXECUTION
@@ -329,7 +282,7 @@ REM ============================================================================
 REM Add your database setup commands here
 SQLCMD -Q "DROP DATABASE LabStudioDb"
 
-\\22-DNS-FS.chromsystems.de\Data\2201_Basic_Software_MassSTAR\Tools\DatabaseUtility\CS.MassStar.BasicSoftware.DatabaseUtility.exe --labware-input "%~dp0%DB_CARRIER_INPUT%"
+\\22-DNS-FS.chromsystems.de\Data\2201_Basic_Software_MassSTAR\Tools\DatabaseUtility\CS.MassStar.BasicSoftware.DatabaseUtility.exe --labware-input "%DB_CARRIER_INPUT%"
 
 SQLCMD -Q "UPDATE[LabStudioDb].[dbo].[SampleTubeType] SET BarcodeRegex = '%BARCODE_REGEX%' WHERE Id = 'D1A541D7-EBC3-4C33-A8C4-94DC54D4F222'"
 
@@ -340,6 +293,62 @@ goto :eof
 REM Add your database cleanup commands here  
 echo   Database cleanup placeholder - add your commands in :DatabaseCleanup
 goto :eof
+
+REM ============================================================================
+REM COMMAND LINE PARAMETER PROCESSING
+REM Usage: run_test.bat [--server-dir path] [--client-dir path] [--addon-dir path] [--config file]
+REM ============================================================================
+
+:parse_args
+if "%~1"=="" goto main_script
+if "%~1"=="--server-dir" (
+    set "SERVER_DIR=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--client-dir" (
+    set "CLIENT_DIR=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--addon-dir" (
+    set "ADDON_DIRECTORY=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--test-data" (
+    set "TEST_PROTOCOL_DATA=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--dbitems-dir" (
+    set "DB_CARRIER_INPUT=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--server-exe" (
+    set "SERVER_EXECUTABLE=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--client-exe" (
+    set "CLIENT_EXECUTABLE=%~2"
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--help" (
+    goto show_help
+)
+REM Unknown parameter - skip it
+shift
+goto parse_args
 
 REM ============================================================================
 REM HELP DISPLAY
@@ -353,6 +362,7 @@ echo OPTIONS:
 echo   --server-dir PATH     Set server directory path
 echo   --client-dir PATH     Set client directory path  
 echo   --addon-dir PATH      Set AddOnDirectory path for appsettings.json
+echo   --dbitems-dir PATH    Set db items json path for DatabaseUtility.exe (mfxcarrieritems.json)
 echo   --server-exe FILE     Set server executable name
 echo   --client-exe FILE     Set client executable name
 echo   --test-data FILE      Set TestProtocolData file name
@@ -361,9 +371,10 @@ echo.
 echo EXAMPLES:
 echo   ./run_test.bat --addon-dir "C:\Gitlab\cs.massstar.basicsoftware.protocolfile"
 echo   ./run_test.bat --test-data "TestProtocolData.json"
+echo   ./run_test.bat --test-data "TestProtocolData.json" --dbitems-dir "mfxcarrieritems.json"
 echo   ./run_test.bat --server-dir "..\..\custom_server" --addon-dir "D:\AddOns"
 echo.
-goto cleanup
+goto end
 
 REM ============================================================================
 REM END
